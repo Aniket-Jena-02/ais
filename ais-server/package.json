@@ -1,0 +1,23 @@
+{
+  "name": "ais-server",
+  "type": "module",
+  "scripts": {
+    "dev": "bun run --hot src/index.ts",
+    "db_worker": "bun run --hot src/scripts/db_worker.ts"
+  },
+  "dependencies": {
+    "@socket.io/bun-engine": "^0.1.0",
+    "amqplib": "^0.10.9",
+    "cookie-parser": "^1.4.7",
+    "hono": "^4.12.7",
+    "ioredis": "^5.10.0",
+    "mongoose": "^9.3.0",
+    "socket.io": "^4.8.3",
+    "zod": "^4.3.6"
+  },
+  "devDependencies": {
+    "@types/amqplib": "^0.10.8",
+    "@types/bun": "latest",
+    "@types/cookie-parser": "^1.4.10"
+  }
+}
