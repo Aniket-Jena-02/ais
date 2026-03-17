@@ -1,5 +1,16 @@
-import { useState, useEffect } from "react";
+import { useEffect } from "react";
 import { UserPlus, Loader2, Mail } from "lucide-react";
+import { useMutation } from "@tanstack/react-query";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { toast } from "sonner";
+import { z } from "zod";
+
+const addMemberSchema = z.object({
+  email: z.string().email("Please enter a valid email address"),
+});
+
+type AddMemberFormValues = z.infer<typeof addMemberSchema>;
 
 interface AddMemberModalProps {
   isOpen: boolean;
@@ -8,10 +19,15 @@ interface AddMemberModalProps {
 }
 
 const AddMemberModal = ({ isOpen, onClose, channelId }: AddMemberModalProps) => {
-  const [email, setEmail] = useState("");
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [error, setError] = useState("");
-  const [success, setSuccess] = useState(false);
+  const {
+    register,
+    handleSubmit,
+    reset,
+    formState: { errors },
+  } = useForm<AddMemberFormValues>({
+    resolver: zodResolver(addMemberSchema),
+    defaultValues: { email: "" },
+  });
 
   // Escape key listener
   useEffect(() => {
@@ -27,30 +43,15 @@ const AddMemberModal = ({ isOpen, onClose, channelId }: AddMemberModalProps) => 
   // Reset state when opened
   useEffect(() => {
     if (isOpen) {
-      setEmail("");
-      setError("");
-      setSuccess(false);
-      setIsSubmitting(false);
+      reset();
+      mutation.reset();
     }
-  }, [isOpen]);
+  }, [isOpen, reset]);
 
-  if (!isOpen) return null;
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError("");
-    setSuccess(false);
-
-    if (!email.trim() || !email.includes('@')) {
-      setError("Please enter a valid email address");
-      return;
-    }
-
-    setIsSubmitting(true);
-
-    try {
+  const mutation = useMutation({
+    mutationFn: async (data: AddMemberFormValues) => {
       const formData = new FormData();
-      formData.append("email", email.trim());
+      formData.append("email", data.email.trim());
 
       const res = await fetch(`${import.meta.env.VITE_API}/channels/${channelId}/add-member`, {
         method: "POST",
@@ -58,22 +59,27 @@ const AddMemberModal = ({ isOpen, onClose, channelId }: AddMemberModalProps) => 
         credentials: "include",
       });
 
-      const data = await res.json();
-
+      const resData = await res.json();
       if (!res.ok) {
-        throw new Error(data.msg || "Failed to add member");
+        throw new Error(resData.msg || "Failed to add member");
       }
-
-      setSuccess(true);
+      return resData;
+    },
+    onSuccess: () => {
+      toast.success("User added successfully!");
       setTimeout(() => {
         onClose();
       }, 1500);
-
-    } catch (err: any) {
-      setError(err.message || "An unexpected error occurred");
-    } finally {
-      setIsSubmitting(false);
+    },
+    onError: (err) => {
+      toast.error(err.message || "Failed to add user");
     }
+  });
+
+  if (!isOpen) return null;
+
+  const onSubmit = (data: AddMemberFormValues) => {
+    mutation.mutate(data);
   };
 
   return (
@@ -94,30 +100,34 @@ const AddMemberModal = ({ isOpen, onClose, channelId }: AddMemberModalProps) => 
         </div>
 
         {/* Body */}
-        <form onSubmit={handleSubmit} className="flex flex-col">
+        <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col">
           <div className="p-6">
             <div className="space-y-2 w-full">
               <label className="text-xs font-bold uppercase tracking-wider text-base-content/70 ml-1">
                 User Email
               </label>
-              <label className={`input input-bordered flex items-center gap-2 bg-base-200/50 w-full focus-within:bg-base-100 transition-colors ${error ? 'input-error' : success ? 'input-success' : 'focus-within:border-primary'}`}>
+              <label className={`input input-bordered flex items-center gap-2 bg-base-200/50 w-full focus-within:bg-base-100 transition-colors ${errors.email || mutation.isError ? 'input-error' : mutation.isSuccess ? 'input-success' : 'focus-within:border-primary'}`}>
                 <Mail className="shrink-0 opacity-50" size={16} />
                 <input
                   type="email"
                   className="grow font-medium w-full"
                   placeholder="name@example.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  disabled={isSubmitting || success}
+                  {...register("email")}
+                  disabled={mutation.isPending || mutation.isSuccess}
                   autoFocus
                 />
               </label>
-              {error && (
+              {errors.email && (
                 <p className="text-xs text-error font-semibold mt-1 ml-1 animate-in slide-in-from-top-1">
-                  {error}
+                  {errors.email.message}
                 </p>
               )}
-              {success && (
+              {mutation.isError && (
+                <p className="text-xs text-error font-semibold mt-1 ml-1 animate-in slide-in-from-top-1">
+                  {mutation.error.message}
+                </p>
+              )}
+              {mutation.isSuccess && (
                 <p className="text-xs text-success font-semibold mt-1 ml-1 animate-in slide-in-from-top-1">
                   User added successfully!
                 </p>
@@ -130,17 +140,17 @@ const AddMemberModal = ({ isOpen, onClose, channelId }: AddMemberModalProps) => 
             <button
               type="button"
               onClick={onClose}
-              disabled={isSubmitting}
+              disabled={mutation.isPending}
               className="btn btn-ghost btn-sm font-bold"
             >
               Cancel
             </button>
             <button
               type="submit"
-              disabled={isSubmitting || success}
+              disabled={mutation.isPending || mutation.isSuccess}
               className="btn btn-primary btn-sm shadow-sm font-bold min-w-[100px]"
             >
-              {isSubmitting ? <Loader2 className="animate-spin" size={16} /> : "Add"}
+              {mutation.isPending ? <Loader2 className="animate-spin" size={16} /> : "Add"}
             </button>
           </div>
         </form>

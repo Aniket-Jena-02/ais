@@ -4,9 +4,11 @@ import { checkUserAuth } from "./utils.js";
 import z from "zod/v4";
 import { MessageModel } from "./models/message-model.js";
 
+const frontendUrl = Bun.env.FRONTEND_URL || "http://localhost:5173";
+
 const io = new SocketIOServer({
   cors: {
-    origin: "http://localhost:5173", // TODO: CHANGE THIS!!!
+    origin: frontendUrl,
     credentials: true,
     methods: ["GET", "POST"],
   },
@@ -22,7 +24,25 @@ io.use(
     socket: Socket<any, any, any, { user: { name: string; id: string } }>,
     next,
   ) => {
-    const token = socket.handshake.headers.cookie?.split(";")[0].split("=")[1];
+    const cookieHeader = socket.handshake.headers.cookie;
+    if (!cookieHeader) {
+      console.error("No cookies found");
+      return;
+    }
+    
+    // Parse cookies gracefully instead of reckless split chaining
+    const cookies = Object.fromEntries(
+      cookieHeader.split('; ').map(c => {
+        const [key, ...v] = c.split('=');
+        return [key, v.join('=')];
+      })
+    );
+    
+    const token = cookies["user_auth"];
+    if (!token) {
+       console.error("No auth token found in socket connection");
+       return;
+    }
     const { isValid, user } = await checkUserAuth(token);
     if (!isValid || !user) {
       console.error("Invalid user");

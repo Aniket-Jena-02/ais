@@ -157,7 +157,7 @@ channelRouter.get("/:id", async (c) => {
 
   return c.json({
     channel,
-    isAdmin: channel.admin && channel.admin.toString() === user.id.toString(),
+    isAdmin: channel.admin && channel.admin?.toString() === user.id.toString(),
     messages,
   });
 });
@@ -191,7 +191,7 @@ channelRouter.post("/:id/add-member", async (c) => {
     });
   }
 
-  if (selectedChannel.admin.toString() !== user.id) {
+  if (selectedChannel.admin?.toString() !== user.id.toString()) {
     c.status(400);
     return c.json({
       msg: "User not authorized to add members",
