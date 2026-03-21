@@ -10,7 +10,7 @@ import MessageItem, { type Message } from "./MessageItem"
 import { useQuery } from "@tanstack/react-query"
 import { format, isSameDay, isToday, isYesterday, isValid } from "date-fns"
 import AddMemberModal from "./AddMemberModal"
-import { useDebounceFn, useThrottleFn } from "ahooks"
+import { useDebounceFn } from "ahooks"
 
 const ChatArea = () => {
     const { channelId } = useParams({
@@ -117,46 +117,47 @@ const ChatArea = () => {
                 setMessages((prev) => [...prev, { ...newMessage, _id: res.messageId!, author: { _id: userData?.userId || "", name: userData?.userName || "" }, createdAt: new Date().toISOString() }])
             }
         })
-        
+
         // Stop typing indicator on send
+        cancelStopTyping()
+        if (isTypingRef.current) {
+            isTypingRef.current = false
+            socketRef.current.emit("typing", { channelId, isTyping: false })
+        }
+    }
+
+
+    const isTypingRef = useRef(false)
+
+    const { run: runStopTyping, cancel: cancelStopTyping } = useDebounceFn(() => {
+        if (!socketRef.current || !isTypingRef.current) return
+        isTypingRef.current = false
         socketRef.current.emit("typing", { channelId, isTyping: false })
-    }
-
-
-    const emitStartTyping = () => {
-        if (!socketRef.current) return
-        socketRef.current.emit("typing", { channelId, isTyping: true })
-    }
-
-    const { run: runStartTyping } = useThrottleFn(emitStartTyping, {
+    }, {
         wait: 2000,
     })
 
-    const emitStopTyping = () => {
+    const handleTyping = () => {
         if (!socketRef.current) return
-        socketRef.current.emit("typing", { channelId, isTyping: false })
+        if (!isTypingRef.current) {
+            isTypingRef.current = true
+            socketRef.current.emit("typing", { channelId, isTyping: true })
+        }
+        runStopTyping()
     }
-
-    const { run: runStopTyping } = useDebounceFn(emitStopTyping, {
-        wait: 1000,
-    })
-
     // Combine fetched messages with socket real-time messages
     // Realistically you'd want a more robust sync state, but this works for presentation
     const allMessages = useMemo(() => [...(data?.messages || []), ...messages], [data?.messages, messages])
 
     return (
-        <div className="flex flex-col h-full bg-base-100 relative overflow-hidden">
-            {/* Subtle background gradient */}
-            <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,rgba(var(--p),0.03),transparent_50%)] pointer-events-none" />
-
+        <div className="flex flex-col h-full bg-brand-dark relative overflow-hidden">
             {/* Chat Header */}
-            <div className="h-14 flex items-center justify-between px-4 border-b border-base-200/50 bg-base-100/80 backdrop-blur-md sticky top-0 z-20 shrink-0 shadow-sm">
-                <div className="flex items-center gap-2 max-w-full">
-                    <Hash size={20} className="text-base-content/40 shrink-0" />
-                    <h2 className="text-[15px] font-bold text-base-content tracking-tight truncate">
+            <div className="h-14 flex items-center justify-between px-6 border-b border-white/5 bg-brand-dark/80 backdrop-blur-md sticky top-0 z-20 shrink-0 shadow-sm">
+                <div className="flex items-center gap-3 max-w-full">
+                    <Hash size={20} className="text-white/20 shrink-0" />
+                    <h2 className="text-lg font-black text-white font-serif tracking-tight truncate">
                         {isLoading ? (
-                            <div className="h-5 w-32 bg-base-200 animate-pulse rounded" />
+                            <div className="h-6 w-32 bg-white/5 animate-pulse rounded" />
                         ) : (
                             data?.channel.name || channelId
                         )}
@@ -167,8 +168,7 @@ const ChatArea = () => {
                 {data?.isAdmin && (
                     <button
                         onClick={() => setIsAddMemberOpen(true)}
-                        className="btn btn-ghost btn-sm btn-circle text-base-content/50 hover:text-base-content hover:bg-base-200 transition-colors tooltip tooltip-left"
-                        data-tip="Add Member"
+                        className="p-2 rounded-full text-white/40 hover:text-white hover:bg-white/5 transition-all duration-200"
                     >
                         <UserPlus size={18} />
                     </button>
@@ -176,23 +176,23 @@ const ChatArea = () => {
             </div>
 
             {/* Messages Scroll Area */}
-            <div className="flex-1 overflow-y-auto px-1 py-4 md:px-4 scrollbar-hide mb-4">
+            <div className="flex-1 overflow-y-auto px-1 py-6 md:px-8 scrollbar-hide">
 
                 {isLoading ? (
-                    <div className="flex flex-col items-center justify-center h-full text-base-content/20 animate-in fade-in zoom-in duration-1000">
-                        <div className="bg-base-200/50 p-10 rounded-full mb-6 border border-base-content/5 shadow-inner">
-                            <Hash size={64} className="opacity-20 animate-pulse" />
+                    <div className="flex flex-col items-center justify-center h-full text-white/10 animate-in fade-in zoom-in duration-1000">
+                        <div className="bg-white/5 p-12 rounded-full mb-8 border border-white/5 shadow-inner">
+                            <Hash size={64} className="opacity-10 animate-pulse" />
                         </div>
-                        <h3 className="text-2xl font-black tracking-tight text-base-content/40 uppercase">Loading...</h3>
+                        <h3 className="text-2xl font-black tracking-tight text-white/30 uppercase font-serif">Loading Messages</h3>
                     </div>
                 ) : allMessages.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center h-full text-base-content/20 animate-in fade-in zoom-in duration-1000">
-                        <div className="bg-base-200/50 p-10 rounded-full mb-6 border border-base-content/5 shadow-inner">
-                            <Hash size={64} className="opacity-20" />
+                    <div className="flex flex-col items-center justify-center h-full text-white/10 animate-in fade-in zoom-in duration-1000">
+                        <div className="bg-white/5 p-12 rounded-full mb-8 border border-white/5 shadow-inner">
+                            <Hash size={64} className="opacity-10" />
                         </div>
-                        <h3 className="text-2xl font-black tracking-tight text-base-content/40 uppercase">Channel Start</h3>
-                        <p className="max-w-xs text-center mt-3 text-sm font-medium opacity-60 italic">
-                            This is the very beginning of the #{channelId} history.
+                        <h3 className="text-2xl font-black tracking-tight text-white/30 uppercase font-serif">Channel History Starts Here</h3>
+                        <p className="max-w-xs text-center mt-4 text-sm font-medium opacity-40 italic font-sans leading-relaxed">
+                            This is the very beginning of the <strong className="text-white/60">#{data?.channel.name}</strong> history. Make it count.
                         </p>
                     </div>
                 ) : (
@@ -217,12 +217,12 @@ const ChatArea = () => {
                         return (
                             <Fragment key={msg._id}>
                                 {showDateSeparator && (
-                                    <div className="flex items-center gap-4 my-8 pl-16 pr-4 opacity-60 pointer-events-none">
-                                        <div className="h-px bg-base-content/20 flex-1"></div>
-                                        <span className="text-[11px] font-bold uppercase tracking-wider text-base-content/80">
+                                    <div className="flex items-center gap-6 my-10 px-4 opacity-40 pointer-events-none select-none">
+                                        <div className="h-px bg-white/5 flex-1"></div>
+                                        <span className="text-[10px] font-black uppercase tracking-[0.2em] text-white/40">
                                             {dateLabel}
                                         </span>
-                                        <div className="h-px bg-base-content/20 flex-1"></div>
+                                        <div className="h-px bg-white/5 flex-1"></div>
                                     </div>
                                 )}
                                 <MessageItem
@@ -233,43 +233,37 @@ const ChatArea = () => {
                         )
                     })
                 )}
-                <div ref={messagesEndRef} className="h-4" />
+                <div ref={messagesEndRef} className="h-8" />
             </div>
 
             {/* Input Area */}
-            <div className="p-4 bg-base-100/80 backdrop-blur-md border-t border-base-200/50 relative z-20 shrink-0">
+            <div className="relative z-20 shrink-0">
                 {/* Typing Indicator */}
                 {Object.keys(typingUsers).length > 0 && (
-                    <div className="absolute -top-6 left-6 flex items-center gap-2 text-[11px] font-medium text-base-content/60 animate-in fade-in duration-300">
-                        <div className="flex items-center gap-0.5 opacity-70">
-                            <span className="w-1 h-1 rounded-full bg-base-content animate-[bounce_1s_infinite_-0.3s]" />
-                            <span className="w-1 h-1 rounded-full bg-base-content animate-[bounce_1s_infinite_-0.15s]" />
-                            <span className="w-1 h-1 rounded-full bg-base-content animate-bounce" />
+                    <div className="px-8 pb-2 flex items-center gap-2 text-[10px] font-bold uppercase tracking-wider text-white/30 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                        <div className="flex items-center gap-1 opacity-50">
+                            <span className="w-1.5 h-1.5 rounded-full bg-white/40 animate-pulse" />
                         </div>
                         <span className="truncate max-w-[200px]">
-                            <span className="font-semibold text-base-content/80">{Object.values(typingUsers).join(", ")}</span> {Object.keys(typingUsers).length === 1 ? "is typing..." : "are typing..."}
+                            <span className="text-white/60">{Object.values(typingUsers).join(", ")}</span> {Object.keys(typingUsers).length === 1 ? "is typing..." : "are typing..."}
                         </span>
                     </div>
                 )}
-                <div className="max-w-4xl mx-auto drop-shadow-sm relative">
-                    <MessageInput
-                        onSendMessage={handleSendMessage}
-                        placeholder={isConnecting ? "Connecting to server..." : `Message in #${data?.channel.name || 'channel'}`}
-                        disabled={isConnecting}
-                        onTyping={() => {
-                            runStartTyping()
-                            runStopTyping()
-                        }}
-                    />
+                
+                <MessageInput
+                    onSendMessage={handleSendMessage}
+                    placeholder={isConnecting ? "Connecting to server..." : `Message in #${data?.channel.name || 'channel'}`}
+                    disabled={isConnecting}
+                    onTyping={handleTyping}
+                />
 
-                    {/* Connection Status Overlay */}
-                    <div className="absolute top-0 left-8 select-none pointer-events-none -translate-y-1/2">
-                        <div className="flex items-center gap-1.5 px-2 py-0.5 bg-base-100/80 backdrop-blur-sm rounded-full border border-base-content/5 shadow-sm">
-                            <div className={`w-1.5 h-1.5 rounded-full ${isConnecting ? 'bg-warning animate-pulse' : 'bg-success'}`} />
-                            <span className="text-[8px] font-black uppercase tracking-widest text-base-content/50">
-                                {isConnecting ? 'Connecting' : 'Connected'}
-                            </span>
-                        </div>
+                {/* Connection Status Overlay */}
+                <div className="absolute top-0 right-12 select-none pointer-events-none -translate-y-1/2 z-30">
+                    <div className="flex items-center gap-2 px-3 py-1 bg-brand-dark rounded-full border border-white/5 shadow-xl">
+                        <div className={`w-2 h-2 rounded-full ${isConnecting ? 'bg-amber-500 animate-pulse' : 'bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.3)]'}`} />
+                        <span className="text-[9px] font-black uppercase tracking-widest text-white/40">
+                            {isConnecting ? 'Connecting' : 'Operational'}
+                        </span>
                     </div>
                 </div>
             </div>
@@ -281,7 +275,7 @@ const ChatArea = () => {
                 channelId={channelId}
             />
         </div>
-    )
+    );
 }
 
 export default ChatArea

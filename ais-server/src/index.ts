@@ -13,8 +13,10 @@ import { cors } from 'hono/cors'
 
 const app = new Hono()
 
+const frontendUrl = Bun.env.FRONTEND_URL || 'http://localhost:5173';
+
 app.use(cors({
-  origin: 'http://localhost:5173',
+  origin: frontendUrl,
   credentials: true
 }))
 
@@ -27,7 +29,7 @@ app.route('/channels', channelRouter)
 
 const { websocket } = engine.handler()
 export default {
-  port: 3000,
+  port: Bun.env.PORT || 3000,
   idleTimeout: 30,
   fetch: (req: Request, server: any) => {
     const url = new URL(req.url)

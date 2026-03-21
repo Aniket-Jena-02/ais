@@ -5,6 +5,9 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
 import { z } from "zod";
+import { motion, AnimatePresence } from "framer-motion";
+
+import { createPortal } from "react-dom";
 
 const addMemberSchema = z.object({
   email: z.string().email("Please enter a valid email address"),
@@ -76,86 +79,109 @@ const AddMemberModal = ({ isOpen, onClose, channelId }: AddMemberModalProps) => 
     }
   });
 
-  if (!isOpen) return null;
-
   const onSubmit = (data: AddMemberFormValues) => {
     mutation.mutate(data);
   };
 
-  return (
-    <div 
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-base-300/80 backdrop-blur-sm animate-in fade-in duration-200"
-      onClick={onClose}
-    >
-      <div 
-        className="bg-base-100 rounded-2xl shadow-2xl w-full max-w-md border border-base-content/10 overflow-hidden animate-in zoom-in-95 duration-200 flex flex-col"
-        onClick={(e) => e.stopPropagation()}
-      >
-        {/* Header */}
-        <div className="px-6 py-5 border-b border-base-200">
-             <h2 className="text-xl font-bold text-base-content tracking-tight flex items-center gap-2">
-               <UserPlus size={20} className="text-primary" />
-               Add Member
-             </h2>
-        </div>
-
-        {/* Body */}
-        <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col">
-          <div className="p-6">
-            <div className="space-y-2 w-full">
-              <label className="text-xs font-bold uppercase tracking-wider text-base-content/70 ml-1">
-                User Email
-              </label>
-              <label className={`input input-bordered flex items-center gap-2 bg-base-200/50 w-full focus-within:bg-base-100 transition-colors ${errors.email || mutation.isError ? 'input-error' : mutation.isSuccess ? 'input-success' : 'focus-within:border-primary'}`}>
-                <Mail className="shrink-0 opacity-50" size={16} />
-                <input
-                  type="email"
-                  className="grow font-medium w-full"
-                  placeholder="name@example.com"
-                  {...register("email")}
-                  disabled={mutation.isPending || mutation.isSuccess}
-                  autoFocus
-                />
-              </label>
-              {errors.email && (
-                <p className="text-xs text-error font-semibold mt-1 ml-1 animate-in slide-in-from-top-1">
-                  {errors.email.message}
-                </p>
-              )}
-              {mutation.isError && (
-                <p className="text-xs text-error font-semibold mt-1 ml-1 animate-in slide-in-from-top-1">
-                  {mutation.error.message}
-                </p>
-              )}
-              {mutation.isSuccess && (
-                <p className="text-xs text-success font-semibold mt-1 ml-1 animate-in slide-in-from-top-1">
-                  User added successfully!
-                </p>
-              )}
+  return createPortal(
+    <AnimatePresence>
+      {isOpen && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.2 }}
+          className="fixed inset-0 z-100 flex items-center justify-center p-4 bg-black/60 backdrop-blur-md"
+          onClick={onClose}
+        >
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95, y: 10 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.95, y: 10 }}
+            transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
+            className="bg-brand-dark rounded-2xl shadow-2xl w-full max-w-md border border-white/5 overflow-hidden flex flex-col"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="px-8 py-6 border-b border-white/5 bg-brand-dark/50">
+              <h2 className="text-2xl font-black text-white font-serif tracking-tight flex items-center gap-3">
+                <UserPlus size={24} className="text-brand-accent/60" />
+                Add Member
+              </h2>
             </div>
-          </div>
 
-          {/* Footer Actions */}
-          <div className="px-6 py-4 bg-base-200/50 flex justify-end gap-3 border-t border-base-200">
-            <button
-              type="button"
-              onClick={onClose}
-              disabled={mutation.isPending}
-              className="btn btn-ghost btn-sm font-bold"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={mutation.isPending || mutation.isSuccess}
-              className="btn btn-primary btn-sm shadow-sm font-bold min-w-[100px]"
-            >
-              {mutation.isPending ? <Loader2 className="animate-spin" size={16} /> : "Add"}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
+            {/* Body */}
+            <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col">
+              <div className="p-8">
+                <div className="space-y-3 w-full">
+                  <label className="text-[10px] font-black uppercase tracking-[0.2em] text-white/30 ml-1">
+                    User Email
+                  </label>
+                  <div className={`flex items-center gap-3 bg-brand-muted/40 rounded-lg p-3 border transition-all duration-300 ${errors.email || mutation.isError ? 'border-red-500/50' : mutation.isSuccess ? 'border-emerald-500/50' : 'border-white/5 focus-within:border-brand-accent/40 focus-within:bg-brand-muted/60'}`}>
+                    <Mail className="shrink-0 text-white/20" size={18} />
+                    <input
+                      type="email"
+                      className="bg-transparent text-white font-medium w-full focus:outline-none placeholder:text-white/10 text-[15px]"
+                      placeholder="name@example.com"
+                      {...register("email")}
+                      disabled={mutation.isPending || mutation.isSuccess}
+                      autoFocus
+                    />
+                  </div>
+                  {errors.email && (
+                    <motion.p
+                      initial={{ opacity: 0, y: -4 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className="text-[11px] text-red-500 font-bold mt-1 ml-1"
+                    >
+                      {errors.email.message}
+                    </motion.p>
+                  )}
+                  {mutation.isError && (
+                    <motion.p
+                      initial={{ opacity: 0, y: -4 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className="text-[11px] text-red-500 font-bold mt-1 ml-1"
+                    >
+                      {mutation.error?.message || "Failed to add member"}
+                    </motion.p>
+                  )}
+                  {mutation.isSuccess && (
+                    <motion.p
+                      initial={{ opacity: 0, y: -4 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className="text-[11px] text-emerald-500 font-bold mt-1 ml-1"
+                    >
+                      User added successfully!
+                    </motion.p>
+                  )}
+                </div>
+              </div>
+
+              {/* Footer Actions */}
+              <div className="px-8 py-6 bg-brand-muted/20 flex justify-end gap-3 border-t border-white/5">
+                <button
+                  type="button"
+                  onClick={onClose}
+                  disabled={mutation.isPending}
+                  className="px-5 py-2 rounded-lg text-sm font-bold text-white/40 hover:text-white hover:bg-white/5 transition-all"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={mutation.isPending || mutation.isSuccess}
+                  className="px-6 py-2 rounded-lg text-sm font-black bg-brand-accent text-white shadow-lg shadow-brand-accent/20 hover:scale-[1.02] active:scale-95 transition-all min-w-[100px] flex items-center justify-center gap-2"
+                >
+                  {mutation.isPending ? <Loader2 className="animate-spin" size={16} /> : "Add"}
+                </button>
+              </div>
+            </form>
+          </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>,
+    document.body
   );
 };
 

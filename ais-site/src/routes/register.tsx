@@ -2,30 +2,32 @@ import { createFileRoute, Link, useRouter } from "@tanstack/react-router";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import z from "zod/v4";
-import { Hash, Key, LogIn, Mail } from "lucide-react";
+import { Hash, Key, UserPlus, Mail, User } from "lucide-react";
 import { useState } from "react";
 import { motion } from "framer-motion";
 
-const loginSchema = z.object({
+const registerSchema = z.object({
+  name: z.string().min(3, "Name must be at least 3 characters"),
   email: z.email("Please enter a valid email address"),
-  password: z.string().min(6, "Password must be at least 6 characters"),
+  password: z.string().min(6, "Password must be at least 6 characters").max(20, "Password must be at most 20 characters"),
 });
 
-type LoginFormData = z.infer<typeof loginSchema>;
+type RegisterFormData = z.infer<typeof registerSchema>;
 
-export const Route = createFileRoute("/login")({
-  component: RouteComponent,
+export const Route = createFileRoute("/register")({
+  component: RegisterComponent,
 });
 
-function RouteComponent() {
+function RegisterComponent() {
   const [serverError, setServerError] = useState("");
   const {
     register,
     handleSubmit,
     formState: { errors, isSubmitting },
-  } = useForm<LoginFormData>({
-    resolver: zodResolver(loginSchema),
+  } = useForm<RegisterFormData>({
+    resolver: zodResolver(registerSchema),
     defaultValues: {
+      name: "",
       email: "",
       password: "",
     },
@@ -33,30 +35,30 @@ function RouteComponent() {
 
   const r = useRouter();
 
-  const onSubmit = async (data: LoginFormData) => {
+  const onSubmit = async (data: RegisterFormData) => {
     setServerError("");
-    let resData: any
     try {
-      const res = await fetch(`${import.meta.env.VITE_API}/auth/login`, {
+      const formData = new FormData();
+      formData.append("name", data.name);
+      formData.append("email", data.email);
+      formData.append("password", data.password);
+
+      const res = await fetch(`${import.meta.env.VITE_API}/auth/register`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
+        body: formData,
         credentials: "include",
       });
 
       if (res.ok) {
-        console.log(await res.json());
-        r.navigate({
-          to: "/",
-        });
-        return
+        r.navigate({ to: "/channels" });
+        return;
       }
-      resData = await res.json()
-      console.log(resData)
-      setServerError(resData.msg || "Login failed");
+
+      const resData = await res.json();
+      setServerError(resData.msg || "Registration failed");
     } catch (error) {
-      console.error("Login failed:", error);
-      setServerError("An unexpected error occurred during login.");
+      console.error("Registration failed:", error);
+      setServerError("An unexpected error occurred during registration.");
     }
   };
 
@@ -78,7 +80,7 @@ function RouteComponent() {
       {/* Background Graphic Effects */}
       <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-brand-accent/5 rounded-full mix-blend-screen filter blur-3xl opacity-20 pointer-events-none" />
 
-      {/* Login Card */}
+      {/* Register Card */}
       <motion.div
         className="w-full max-w-md relative z-10"
         variants={containerVariants}
@@ -95,14 +97,34 @@ function RouteComponent() {
               <Hash size={32} className="text-white" />
             </div>
             <h2 className="text-4xl font-black text-white tracking-tight font-serif">
-              Welcome back
+              Create Account
             </h2>
             <p className="text-white/20 mt-3 font-medium text-sm tracking-wide uppercase">
-              Secure access required
+              Join the conversation
             </p>
           </motion.div>
 
-          <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+          <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
+            <motion.div variants={itemVariants} className="space-y-2 w-full">
+              <label className="text-[10px] font-black uppercase tracking-[0.2em] text-white/30 ml-1">
+                Display Name
+              </label>
+              <div className={`flex items-center gap-3 bg-brand-muted/40 rounded-2xl p-4 border transition-all duration-300 ${errors.name ? 'border-red-500/50' : 'border-white/5 focus-within:border-brand-accent/40 focus-within:bg-brand-muted/60'}`}>
+                <User className="shrink-0 text-white/20" size={18} />
+                <input
+                  type="text"
+                  className="bg-transparent text-white font-medium w-full focus:outline-none placeholder:text-white/10"
+                  placeholder="Your name"
+                  {...register("name")}
+                />
+              </div>
+              {errors.name && (
+                <p className="text-[11px] text-red-500 font-bold mt-2 ml-1">
+                  {errors.name.message}
+                </p>
+              )}
+            </motion.div>
+
             <motion.div variants={itemVariants} className="space-y-2 w-full">
               <label className="text-[10px] font-black uppercase tracking-[0.2em] text-white/30 ml-1">
                 Identity Profile
@@ -117,7 +139,7 @@ function RouteComponent() {
                 />
               </div>
               {errors.email && (
-                <p className="text-[11px] text-red-500 font-bold mt-2 ml-1 animate-in slide-in-from-top-1">
+                <p className="text-[11px] text-red-500 font-bold mt-2 ml-1">
                   {errors.email.message}
                 </p>
               )}
@@ -137,46 +159,50 @@ function RouteComponent() {
                 />
               </div>
               {errors.password && (
-                <p className="text-[11px] text-red-500 font-bold mt-2 ml-1 animate-in slide-in-from-top-1">
+                <p className="text-[11px] text-red-500 font-bold mt-2 ml-1">
                   {errors.password.message}
                 </p>
               )}
             </motion.div>
 
-            <motion.button
-              variants={itemVariants}
-              type="submit"
-              disabled={isSubmitting}
-              className="w-full mt-10 p-4 bg-brand-accent text-white rounded-2xl shadow-xl shadow-brand-accent/20 hover:scale-[1.02] active:scale-[0.98] transition-all duration-300 font-black uppercase tracking-widest text-xs flex items-center justify-center gap-3 disabled:opacity-50 disabled:scale-100 group"
-            >
-              {isSubmitting ? (
-                <div className="w-5 h-5 border-2 border-white/20 border-t-white rounded-full animate-spin" />
-              ) : (
-                <>
-                  <LogIn size={18} className="group-hover:-translate-x-1 transition-transform" />
-                  Authenticate
-                </>
-              )}
-            </motion.button>
+            <motion.div variants={itemVariants}>
+              <button
+                type="submit"
+                disabled={isSubmitting}
+                className="w-full mt-8 p-4 bg-brand-accent text-white rounded-2xl shadow-xl shadow-brand-accent/20 hover:scale-[1.02] active:scale-[0.98] transition-all duration-300 font-black uppercase tracking-widest text-xs flex items-center justify-center gap-3 disabled:opacity-50 disabled:scale-100 group"
+              >
+                {isSubmitting ? (
+                  <div className="w-5 h-5 border-2 border-white/20 border-t-white rounded-full animate-spin" />
+                ) : (
+                  <>
+                    <UserPlus size={18} className="group-hover:-translate-x-1 transition-transform" />
+                    Create Account
+                  </>
+                )}
+              </button>
+            </motion.div>
             
             {serverError && (
-              <div className="text-center mt-6 animate-in fade-in zoom-in duration-300">
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                className="text-center mt-6"
+              >
                 <p className="text-[11px] text-red-500 font-black uppercase tracking-wider bg-red-500/10 py-3 px-6 rounded-xl inline-block border border-red-500/20">
                   {serverError}
                 </p>
-              </div>
+              </motion.div>
             )}
           </form>
-
         </div>
 
         {/* Helper Footer */}
         <motion.div variants={itemVariants} className="flex flex-col items-center gap-4 mt-12">
           <Link
-            to="/register"
+            to="/login"
             className="text-[10px] font-black uppercase tracking-[0.3em] text-white/20 hover:text-brand-accent transition-all duration-300"
           >
-            Don't have an account? Register
+            Already have an account? Log in
           </Link>
         </motion.div>
       </motion.div>
