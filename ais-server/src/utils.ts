@@ -38,7 +38,7 @@ export const startRabbitWorker = async () => {
     const BATCH_SIZE = 500
     const FLUSH_INTERVAL_MS = 3000
 
-    const mqConnection = await amqp.connect('amqp://localhost')
+    const mqConnection = await amqp.connect(Bun.env.RABBITMQ_URL || 'amqp://localhost')
     const mqChannel = await mqConnection.createChannel()
     await mqChannel.assertQueue('mongo_write_queue', { durable: true })
     mqChannel.prefetch(BATCH_SIZE)

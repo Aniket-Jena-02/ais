@@ -38,14 +38,10 @@ function RegisterComponent() {
   const onSubmit = async (data: RegisterFormData) => {
     setServerError("");
     try {
-      const formData = new FormData();
-      formData.append("name", data.name);
-      formData.append("email", data.email);
-      formData.append("password", data.password);
-
       const res = await fetch(`${import.meta.env.VITE_API}/auth/register`, {
         method: "POST",
-        body: formData,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
         credentials: "include",
       });
 

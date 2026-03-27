@@ -26,7 +26,7 @@ channelRouter.post("/create-channel", async (c) => {
     });
   }
 
-  const body = await c.req.parseBody();
+  const body = await c.req.json();
   const schema = z.object({
     name: z.string().min(3).max(20),
   });
@@ -98,17 +98,30 @@ channelRouter.get("/:id/messages", async (c) => {
   }
 
   const { id } = c.req.param();
+  const before = c.req.query("before");
+  const limit = Math.min(parseInt(c.req.query("limit") || "50", 10), 100);
 
-  const messages = await MessageModel.find({
-    channelId: id,
-  })
+  const query: Record<string, any> = { channelId: id };
+  if (before) {
+    query._id = { $lt: before };
+  }
+
+  const messages = await MessageModel.find(query)
+    .sort({ _id: -1 })
+    .limit(limit)
     .populate("author", "name")
     .select({
       content: 1,
       createdAt: 1,
     });
 
-  return c.json(messages);
+  // Return in chronological order
+  messages.reverse();
+
+  return c.json({
+    messages,
+    hasMore: messages.length === limit,
+  });
 });
 
 channelRouter.get("/:id", async (c) => {
@@ -146,19 +159,9 @@ channelRouter.get("/:id", async (c) => {
     });
   }
 
-  const messages = await MessageModel.find({
-    channelId: id,
-  })
-    .populate("author", "name")
-    .select({
-      content: 1,
-      createdAt: 1,
-    });
-
   return c.json({
     channel,
     isAdmin: channel.admin && channel.admin?.toString() === user.id.toString(),
-    messages,
   });
 });
 
@@ -198,7 +201,7 @@ channelRouter.post("/:id/add-member", async (c) => {
     });
   }
 
-  const body = await c.req.parseBody();
+  const body = await c.req.json();
   const schema = z.object({
     email: z.email(),
   });

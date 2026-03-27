@@ -8,7 +8,7 @@ import { checkUserAuth } from "../utils.js";
 const authRouter = new Hono();
 
 authRouter.post("/register", async (c) => {
-  const body = await c.req.parseBody();
+  const body = await c.req.json();
   const schema = z.object({
     name: z.string().min(3),
     email: z.email(),

@@ -1,9 +1,11 @@
 import { useParams } from "@tanstack/react-router"
-import { useEffect, useState, useRef, useMemo, Fragment } from "react"
+import { useEffect, useState, useRef, useMemo, useCallback, Fragment } from "react"
 import { io, Socket } from "socket.io-client"
 import {
     Hash,
-    UserPlus
+    UserPlus,
+    ChevronUp,
+    Loader2
 } from "lucide-react"
 import MessageInput from "./MessageInput"
 import MessageItem, { type Message } from "./MessageItem"
@@ -12,18 +14,39 @@ import { format, isSameDay, isToday, isYesterday, isValid } from "date-fns"
 import AddMemberModal from "./AddMemberModal"
 import { useDebounceFn } from "ahooks"
 
+interface ProcessedMessage extends Message {
+    showDateSeparator: boolean
+    dateLabel: string
+    isConsecutive: boolean
+}
+
+const MESSAGES_PER_PAGE = 50
+const TYPING_TIMEOUT_MS = 4000
+
 const ChatArea = () => {
     const { channelId } = useParams({
         from: '/channels/$channelId',
     })
 
-    const { data, isLoading } = useQuery({
-        queryKey: ["channel messages", channelId],
+    // Fetch channel metadata (no longer includes messages)
+    const { data: channelData, isLoading: isChannelLoading } = useQuery({
+        queryKey: ["channel", channelId],
         queryFn: async () => {
             const res = await fetch(`${import.meta.env.VITE_API}/channels/${channelId}`, {
                 credentials: "include"
             })
-            return await res.json() as { messages: Message[], channel: { _id: string, name: string, createdAt: string }, isAdmin: boolean }
+            return await res.json() as { channel: { _id: string, name: string, createdAt: string }, isAdmin: boolean }
+        }
+    })
+
+    // Fetch messages separately with pagination
+    const { data: messagesData, isLoading: isMessagesLoading } = useQuery({
+        queryKey: ["channel messages", channelId],
+        queryFn: async () => {
+            const res = await fetch(`${import.meta.env.VITE_API}/channels/${channelId}/messages?limit=${MESSAGES_PER_PAGE}`, {
+                credentials: "include"
+            })
+            return await res.json() as { messages: Message[], hasMore: boolean }
         }
     })
 
@@ -31,6 +54,9 @@ const ChatArea = () => {
     const [isConnecting, setIsConnecting] = useState(true)
     const [isAddMemberOpen, setIsAddMemberOpen] = useState(false)
     const [typingUsers, setTypingUsers] = useState<Record<string, string>>({})
+    const [olderMessages, setOlderMessages] = useState<Message[]>([])
+    const [hasMore, setHasMore] = useState(false)
+    const [isLoadingOlder, setIsLoadingOlder] = useState(false)
 
     // current user
     const { data: userData } = useQuery({
@@ -46,6 +72,14 @@ const ChatArea = () => {
     // Using useRef for persistent socket across re-renders
     const socketRef = useRef<Socket | null>(null)
     const messagesEndRef = useRef<HTMLDivElement>(null)
+    const typingTimeoutsRef = useRef<Record<string, ReturnType<typeof setTimeout>>>({})
+
+    // Track hasMore from initial query
+    useEffect(() => {
+        if (messagesData) {
+            setHasMore(messagesData.hasMore)
+        }
+    }, [messagesData])
 
     // Auto scroll to bottom when new messages arrive
     const scrollToBottom = () => {
@@ -54,11 +88,18 @@ const ChatArea = () => {
 
     useEffect(() => {
         scrollToBottom()
-    }, [messages, data?.messages]) // Added data?.messages to ensure scrolling on load
+    }, [messages, messagesData?.messages])
+
+    // Reset state when channel changes
+    useEffect(() => {
+        setOlderMessages([])
+        setMessages([])
+        setHasMore(false)
+    }, [channelId])
 
     useEffect(() => {
-        // Initialize socket connection
-        const socket = io(`ws://localhost:3000`, {
+        // Initialize socket connection using env var
+        const socket = io(import.meta.env.VITE_WS_URL || `ws://localhost:3000`, {
             transports: ["websocket"],
         })
         socketRef.current = socket
@@ -82,8 +123,27 @@ const ChatArea = () => {
                 const newObj = { ...prev }
                 if (data.isTyping) {
                     newObj[data.user.id] = data.user.name
+
+                    // Auto-clear timeout: remove this user after TYPING_TIMEOUT_MS
+                    // if no refreshing "start typing" event arrives
+                    if (typingTimeoutsRef.current[data.user.id]) {
+                        clearTimeout(typingTimeoutsRef.current[data.user.id])
+                    }
+                    typingTimeoutsRef.current[data.user.id] = setTimeout(() => {
+                        setTypingUsers((prev) => {
+                            const updated = { ...prev }
+                            delete updated[data.user.id]
+                            return updated
+                        })
+                        delete typingTimeoutsRef.current[data.user.id]
+                    }, TYPING_TIMEOUT_MS)
                 } else {
                     delete newObj[data.user.id]
+                    // Clear any pending timeout
+                    if (typingTimeoutsRef.current[data.user.id]) {
+                        clearTimeout(typingTimeoutsRef.current[data.user.id])
+                        delete typingTimeoutsRef.current[data.user.id]
+                    }
                 }
                 return newObj
             })
@@ -98,6 +158,9 @@ const ChatArea = () => {
             socket.disconnect()
             setMessages([])
             setTypingUsers({})
+            // Clear all typing timeouts
+            Object.values(typingTimeoutsRef.current).forEach(clearTimeout)
+            typingTimeoutsRef.current = {}
         }
     }, [channelId])
 
@@ -145,9 +208,61 @@ const ChatArea = () => {
         }
         runStopTyping()
     }
-    // Combine fetched messages with socket real-time messages
-    // Realistically you'd want a more robust sync state, but this works for presentation
-    const allMessages = useMemo(() => [...(data?.messages || []), ...messages], [data?.messages, messages])
+
+    // Load older messages (cursor-based pagination)
+    const loadOlderMessages = useCallback(async () => {
+        const allCurrent = [...olderMessages, ...(messagesData?.messages || []), ...messages]
+        if (allCurrent.length === 0 || !hasMore) return
+
+        setIsLoadingOlder(true)
+        try {
+            const oldestId = allCurrent[0]._id
+            const res = await fetch(
+                `${import.meta.env.VITE_API}/channels/${channelId}/messages?limit=${MESSAGES_PER_PAGE}&before=${oldestId}`,
+                { credentials: "include" }
+            )
+            const data = await res.json() as { messages: Message[], hasMore: boolean }
+            setOlderMessages((prev) => [...data.messages, ...prev])
+            setHasMore(data.hasMore)
+        } catch (err) {
+            console.error("Failed to load older messages:", err)
+        } finally {
+            setIsLoadingOlder(false)
+        }
+    }, [channelId, olderMessages, messagesData?.messages, messages, hasMore])
+
+    // Combine all messages and pre-process date separators / consecutive flags
+    const processedMessages = useMemo(() => {
+        const allMessages = [...olderMessages, ...(messagesData?.messages || []), ...messages]
+
+        return allMessages.map((msg, index): ProcessedMessage => {
+            const messageDate = new Date(msg.createdAt)
+            const prevMessageDate = index > 0 ? new Date(allMessages[index - 1].createdAt) : null
+
+            const showDateSeparator = !prevMessageDate || !isSameDay(messageDate, prevMessageDate)
+            const isConsecutive = !showDateSeparator && index > 0 && allMessages[index - 1].author?._id === msg.author?._id
+
+            let dateLabel = ""
+            if (showDateSeparator && isValid(messageDate)) {
+                if (isToday(messageDate)) {
+                    dateLabel = "Today"
+                } else if (isYesterday(messageDate)) {
+                    dateLabel = "Yesterday"
+                } else {
+                    dateLabel = format(messageDate, "EEEE, MMMM d")
+                }
+            }
+
+            return {
+                ...msg,
+                showDateSeparator,
+                dateLabel,
+                isConsecutive,
+            }
+        })
+    }, [olderMessages, messagesData?.messages, messages])
+
+    const isLoading = isChannelLoading || isMessagesLoading
 
     return (
         <div className="flex flex-col h-full bg-brand-dark relative overflow-hidden">
@@ -159,13 +274,13 @@ const ChatArea = () => {
                         {isLoading ? (
                             <div className="h-6 w-32 bg-white/5 animate-pulse rounded" />
                         ) : (
-                            data?.channel.name || channelId
+                            channelData?.channel.name || channelId
                         )}
                     </h2>
                 </div>
 
                 {/* Admin Header Actions */}
-                {data?.isAdmin && (
+                {channelData?.isAdmin && (
                     <button
                         onClick={() => setIsAddMemberOpen(true)}
                         className="p-2 rounded-full text-white/40 hover:text-white hover:bg-white/5 transition-all duration-200"
@@ -178,6 +293,24 @@ const ChatArea = () => {
             {/* Messages Scroll Area */}
             <div className="flex-1 overflow-y-auto px-1 py-6 md:px-8 scrollbar-hide">
 
+                {/* Load Earlier Messages */}
+                {hasMore && !isLoading && (
+                    <div className="flex justify-center mb-6">
+                        <button
+                            onClick={loadOlderMessages}
+                            disabled={isLoadingOlder}
+                            className="flex items-center gap-2 px-4 py-2 text-[10px] font-black uppercase tracking-[0.15em] text-white/30 hover:text-white/60 bg-white/5 hover:bg-white/10 rounded-full border border-white/5 transition-all duration-200 disabled:opacity-50"
+                        >
+                            {isLoadingOlder ? (
+                                <Loader2 size={14} className="animate-spin" />
+                            ) : (
+                                <ChevronUp size={14} />
+                            )}
+                            {isLoadingOlder ? "Loading..." : "Load Earlier Messages"}
+                        </button>
+                    </div>
+                )}
+
                 {isLoading ? (
                     <div className="flex flex-col items-center justify-center h-full text-white/10 animate-in fade-in zoom-in duration-1000">
                         <div className="bg-white/5 p-12 rounded-full mb-8 border border-white/5 shadow-inner">
@@ -185,53 +318,34 @@ const ChatArea = () => {
                         </div>
                         <h3 className="text-2xl font-black tracking-tight text-white/30 uppercase font-serif">Loading Messages</h3>
                     </div>
-                ) : allMessages.length === 0 ? (
+                ) : processedMessages.length === 0 ? (
                     <div className="flex flex-col items-center justify-center h-full text-white/10 animate-in fade-in zoom-in duration-1000">
                         <div className="bg-white/5 p-12 rounded-full mb-8 border border-white/5 shadow-inner">
                             <Hash size={64} className="opacity-10" />
                         </div>
                         <h3 className="text-2xl font-black tracking-tight text-white/30 uppercase font-serif">Channel History Starts Here</h3>
                         <p className="max-w-xs text-center mt-4 text-sm font-medium opacity-40 italic font-sans leading-relaxed">
-                            This is the very beginning of the <strong className="text-white/60">#{data?.channel.name}</strong> history. Make it count.
+                            This is the very beginning of the <strong className="text-white/60">#{channelData?.channel.name}</strong> history. Make it count.
                         </p>
                     </div>
                 ) : (
-                    allMessages.map((msg, index) => {
-                        const messageDate = new Date(msg.createdAt)
-                        const prevMessageDate = index > 0 ? new Date(allMessages[index - 1].createdAt) : null
-
-                        const showDateSeparator = !prevMessageDate || !isSameDay(messageDate, prevMessageDate)
-                        const isConsecutive = !showDateSeparator && index > 0 && allMessages[index - 1].author?._id === msg.author?._id
-
-                        let dateLabel = ""
-                        if (showDateSeparator && isValid(messageDate)) {
-                            if (isToday(messageDate)) {
-                                dateLabel = "Today"
-                            } else if (isYesterday(messageDate)) {
-                                dateLabel = "Yesterday"
-                            } else {
-                                dateLabel = format(messageDate, "EEEE, MMMM d")
-                            }
-                        }
-
-                        return (
-                            <Fragment key={msg._id}>
-                                {showDateSeparator && (
-                                    <div className="flex items-center gap-6 my-10 px-4 opacity-40 pointer-events-none select-none">
-                                        <div className="h-px bg-white/5 flex-1"></div>
-                                        <span className="text-[10px] font-black uppercase tracking-[0.2em] text-white/40">
-                                            {dateLabel}
-                                        </span>
-                                        <div className="h-px bg-white/5 flex-1"></div>
-                                    </div>
-                                )}
-                                <MessageItem
-                                    message={msg}
-                                    consecutive={isConsecutive}
-                                />
-                            </Fragment>
-                        )
-                    })
+                    processedMessages.map((msg) => (
+                        <Fragment key={msg._id}>
+                            {msg.showDateSeparator && (
+                                <div className="flex items-center gap-6 my-10 px-4 opacity-40 pointer-events-none select-none">
+                                    <div className="h-px bg-white/5 flex-1"></div>
+                                    <span className="text-[10px] font-black uppercase tracking-[0.2em] text-white/40">
+                                        {msg.dateLabel}
+                                    </span>
+                                    <div className="h-px bg-white/5 flex-1"></div>
+                                </div>
+                            )}
+                            <MessageItem
+                                message={msg}
+                                consecutive={msg.isConsecutive}
+                            />
+                        </Fragment>
+                    ))
                 )}
                 <div ref={messagesEndRef} className="h-8" />
             </div>
@@ -252,7 +366,7 @@ const ChatArea = () => {
                 
                 <MessageInput
                     onSendMessage={handleSendMessage}
-                    placeholder={isConnecting ? "Connecting to server..." : `Message in #${data?.channel.name || 'channel'}`}
+                    placeholder={isConnecting ? "Connecting to server..." : `Message in #${channelData?.channel.name || 'channel'}`}
                     disabled={isConnecting}
                     onTyping={handleTyping}
                 />

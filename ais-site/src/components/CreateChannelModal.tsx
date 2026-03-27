@@ -56,12 +56,10 @@ const CreateChannelModal = ({ isOpen, onClose }: CreateChannelModalProps) => {
 
   const mutation = useMutation({
     mutationFn: async (data: CreateChannelFormValues) => {
-      const formData = new FormData();
-      formData.append("name", data.name.trim());
-
       const res = await fetch(`${import.meta.env.VITE_API}/channels/create-channel`, {
         method: "POST",
-        body: formData,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: data.name.trim() }),
         credentials: "include",
       });
 

@@ -53,12 +53,10 @@ const AddMemberModal = ({ isOpen, onClose, channelId }: AddMemberModalProps) => 
 
   const mutation = useMutation({
     mutationFn: async (data: AddMemberFormValues) => {
-      const formData = new FormData();
-      formData.append("email", data.email.trim());
-
       const res = await fetch(`${import.meta.env.VITE_API}/channels/${channelId}/add-member`, {
         method: "POST",
-        body: formData,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: data.email.trim() }),
         credentials: "include",
       });
 
