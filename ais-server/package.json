@@ -2,11 +2,13 @@
   "name": "ais-server",
   "type": "module",
   "scripts": {
+    "start": "bun run --bun src/index.ts",
     "dev": "bun run --hot src/index.ts",
     "db_worker": "bun run --hot src/scripts/db_worker.ts"
   },
   "dependencies": {
     "@socket.io/bun-engine": "^0.1.0",
+    "@socket.io/redis-adapter": "^8.3.0",
     "amqplib": "^0.10.9",
     "cookie-parser": "^1.4.7",
     "hono": "^4.12.7",

@@ -1,12 +1,14 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
-import { Hash, Loader2, Plus } from "lucide-react";
+import { Hash, Loader2, Plus, PanelLeftClose, PanelLeftOpen } from "lucide-react";
 import { useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import UserProfileFooter from "./UserProfileFooter";
 import CreateChannelModal from "./CreateChannelModal";
 
 const UserChannels = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isCollapsed, setIsCollapsed] = useState(false);
   const {
     data: channels,
     isLoading,
@@ -31,13 +33,13 @@ const UserChannels = () => {
         createdAt: string;
       }[];
     },
-  })
+  });
 
   // Loading State
   if (isLoading) {
     return (
-      <div className="w-64 h-full bg-base-200 flex items-center justify-center border-r border-base-300 shadow-[inset_0_0_20px_rgba(0,0,0,0.02)]">
-        <Loader2 className="w-6 h-6 animate-spin text-primary opacity-50" />
+      <div className="w-64 h-full bg-brand-surface/50 flex items-center justify-center border-r border-white/4">
+        <Loader2 className="w-6 h-6 animate-spin text-brand-accent opacity-50" />
       </div>
     );
   }
@@ -45,88 +47,136 @@ const UserChannels = () => {
   // Error State
   if (isError) {
     return (
-      <div className="w-64 h-full bg-base-200 border-r border-base-300 p-4 flex flex-col justify-center items-center text-center gap-3">
-        <div className="w-12 h-12 rounded-full bg-error/10 flex items-center justify-center text-error">
+      <div className="w-64 h-full bg-brand-surface/50 border-r border-white/4 p-4 flex flex-col justify-center items-center text-center gap-3">
+        <div className="w-12 h-12 rounded-full bg-brand-accent/10 flex items-center justify-center text-brand-accent">
           <Hash size={24} />
         </div>
         <div>
-          <h3 className="font-bold text-base-content/80 text-sm">Failed to load</h3>
-          <p className="text-xs text-base-content/50 mt-1">Could not connect to server</p>
+          <h3 className="font-bold text-white/80 text-sm">Failed to load</h3>
+          <p className="text-xs text-white/40 mt-1">Could not connect to server</p>
         </div>
       </div>
     );
   }
 
-  // Success State
   return (
-    <div className="flex flex-col w-64 h-full bg-base-200 border-r border-base-300 shadow-[inset_0_0_20px_rgba(0,0,0,0.02)] relative z-20">
-      
-      {/* Header */}
-      <div className="h-14 flex items-center justify-between px-4 border-b border-base-300 shadow-sm shrink-0 bg-base-200/80 backdrop-blur-md sticky top-0 z-10">
-        <h2 className="text-sm font-black text-base-content uppercase tracking-widest flex items-center gap-2">
-          Channels
-        </h2>
-        <button 
-          onClick={() => setIsModalOpen(true)}
-          className="btn btn-ghost btn-xs btn-circle text-base-content/50 hover:text-base-content hover:bg-base-300 transition-colors"
-        >
-          <Plus size={16} />
-        </button>
-      </div>
+    <motion.div 
+      initial={false}
+      animate={{ width: isCollapsed ? 80 : 256 }}
+      transition={{ duration: 0.3, ease: "easeInOut" }}
+      className="flex flex-col h-full bg-brand-surface/50 border-r border-white/4 relative z-50 overflow-hidden shrink-0"
+    >
 
-      {/* Channels List */}
-      <div className="flex-1 overflow-y-auto p-3 space-y-0.5 scrollbar-thin scrollbar-thumb-base-content/10 scrollbar-track-transparent">
-        
-        {channels?.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-40 text-center px-4 mt-10">
-            <div className="w-12 h-12 rounded-2xl bg-base-300 flex items-center justify-center mb-3 shadow-inner">
-              <Hash size={24} className="opacity-20" />
-            </div>
-            <div className="text-base-content/70 text-sm font-semibold">
-              No channels yet
-            </div>
-            <div className="text-xs text-base-content/40 mt-1.5 leading-relaxed">
-              Create your first channel to start chatting
-            </div>
-          </div>
-        ) : (
-          channels?.map((channel) => (
-            <Link
-              to={`/channels/$channelId`}
-              params={{ channelId: channel._id }}
-              key={channel._id}
-              activeProps={{
-                className: "bg-base-300/80 text-base-content font-semibold shadow-sm",
-              }}
-              inactiveProps={{
-                className: "text-base-content/60 hover:bg-base-300/50 hover:text-base-content/90 font-medium"
-              }}
-              className="group flex flex-col justify-center px-3 py-2 rounded-lg transition-all duration-200 relative overflow-hidden"
+      {/* Header */}
+      <motion.div
+        initial={{ y: -10, opacity: 0 }}
+        animate={{ y: 0, opacity: 1 }}
+        transition={{ duration: 0.4, ease: "easeOut" }}
+        className={`h-14 flex items-center ${isCollapsed ? 'justify-center' : 'justify-between'} px-6 border-b border-white/4 shrink-0 bg-brand-surface/70 backdrop-blur-md sticky top-0 z-10`}
+      >
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setIsCollapsed(!isCollapsed)}
+            className="p-1.5 rounded-full text-white/50 hover:text-white hover:bg-white/5 transition-all duration-200 active:scale-90"
+            title={isCollapsed ? "Expand Sidebar" : "Collapse Sidebar"}
+          >
+            {isCollapsed ? <PanelLeftOpen size={18} /> : <PanelLeftClose size={18} />}
+          </button>
+          {!isCollapsed && (
+            <motion.h2 
+              initial={{ opacity: 0, width: 0 }}
+              animate={{ opacity: 1, width: "auto" }}
+              exit={{ opacity: 0, width: 0 }}
+              className="text-lg font-black text-white font-serif tracking-tight truncate"
             >
-              {({ isActive }) => (
-                <>
-                  {/* Left accent bar when active */}
-                  {isActive && (
-                    <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-1/2 bg-primary rounded-r-full" />
-                  )}
-                  
-                  <div className="flex items-center gap-2.5 relative z-10">
-                    <Hash size={18} className={`shrink-0 transition-colors duration-200 ${isActive ? 'text-primary' : 'text-base-content/30 group-hover:text-base-content/50'}`} />
-                    <span className="truncate tracking-tight text-[15px]">{channel.name}</span>
-                  </div>
-                </>
-              )}
-            </Link>
-          ))
+              Channels
+            </motion.h2>
+          )}
+        </div>
+        {!isCollapsed && (
+          <button
+            onClick={() => setIsModalOpen(true)}
+            className="p-1.5 rounded-full text-white/50 hover:text-white hover:bg-white/5 transition-all duration-200 hover:rotate-90 active:scale-90 shrink-0"
+          >
+            <Plus size={18} />
+          </button>
         )}
+      </motion.div>
+
+      {/* Channel List */}
+      <div className="flex-1 overflow-y-auto p-4 scrollbar-hide">
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: 0.3, delay: 0.1 }}
+          className="space-y-0.5"
+        >
+          <AnimatePresence mode="popLayout">
+            {channels?.length === 0 ? (
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="py-8 text-center px-4"
+              >
+                <div className="w-12 h-12 rounded-full bg-white/5 flex items-center justify-center mx-auto mb-4">
+                  <Hash size={20} className="text-white/10" />
+                </div>
+                <p className="text-xs text-white/30 font-medium">No channels yet</p>
+                <p className="text-[10px] text-white/15 mt-1">Create one to get started</p>
+              </motion.div>
+            ) : (
+              channels?.map((channel, index) => (
+                <motion.div
+                  key={channel._id}
+                  initial={{ opacity: 0, x: -12 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: -12 }}
+                  transition={{
+                    duration: 0.3,
+                    delay: index * 0.04,
+                    ease: [0.22, 1, 0.36, 1]
+                  }}
+                  layout
+                >
+                  <Link
+                    to="/channels/$channelId"
+                    params={{ channelId: channel._id }}
+                    className={`group relative flex items-center ${isCollapsed ? 'justify-center' : 'gap-2.5'} px-3 py-2 rounded-md text-[14px] font-medium tracking-tight transition-all duration-200`}
+                    activeProps={{
+                      className: "bg-white/5 text-white shadow-[0_1px_2px_rgba(0,0,0,0.2)]"
+                    }}
+                    inactiveProps={{
+                      className: "text-white/40 hover:bg-white/[0.02] hover:text-white/70"
+                    }}
+                    title={isCollapsed ? channel.name : undefined}
+                  >
+                    {({ isActive }) => (
+                      <>
+                        {isActive && (
+                          <motion.div
+                            layoutId="channel-indicator"
+                            className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-1/2 bg-brand-accent rounded-full"
+                            transition={{ type: "spring", stiffness: 350, damping: 30 }}
+                          />
+                        )}
+                        <Hash size={16} className={`shrink-0 transition-colors duration-200 ${isActive ? 'text-brand-accent' : 'text-white/20 group-hover:text-white/40'}`} />
+                        {!isCollapsed && <span className="truncate">{channel.name}</span>}
+                      </>
+                    )}
+                  </Link>
+                </motion.div>
+              ))
+            )}
+          </AnimatePresence>
+        </motion.div>
       </div>
 
       {/* Footer (User Profile) */}
-      <UserProfileFooter />
+      <UserProfileFooter isCollapsed={isCollapsed} />
 
       {/* Create Channel Modal */}
       <CreateChannelModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} />
-    </div>
+    </motion.div>
   );
 };
 

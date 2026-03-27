@@ -3,13 +3,22 @@ import { Server as BunEngine } from "@socket.io/bun-engine";
 import { checkUserAuth } from "./utils.js";
 import z from "zod/v4";
 import { MessageModel } from "./models/message-model.js";
+import { ChannelModel } from "./models/channel-model.js";
+import { createAdapter } from "@socket.io/redis-adapter";
+import { Redis } from "ioredis";
+
+const frontendUrl = Bun.env.FRONTEND_URL || "http://localhost:5173";
+
+const pubClient = new Redis(Bun.env.REDIS_URI || "redis://localhost:6379");
+const subClient = pubClient.duplicate();
 
 const io = new SocketIOServer({
   cors: {
-    origin: "http://localhost:5173", // TODO: CHANGE THIS!!!
+    origin: frontendUrl,
     credentials: true,
     methods: ["GET", "POST"],
   },
+  adapter: createAdapter(pubClient, subClient)
 });
 
 const engine = new BunEngine({
@@ -22,7 +31,25 @@ io.use(
     socket: Socket<any, any, any, { user: { name: string; id: string } }>,
     next,
   ) => {
-    const token = socket.handshake.headers.cookie?.split(";")[0].split("=")[1];
+    const cookieHeader = socket.handshake.headers.cookie;
+    if (!cookieHeader) {
+      console.error("No cookies found");
+      return;
+    }
+
+    // Parse cookies gracefully instead of reckless split chaining
+    const cookies = Object.fromEntries(
+      cookieHeader.split('; ').map(c => {
+        const [key, ...v] = c.split('=');
+        return [key, v.join('=')];
+      })
+    );
+
+    const token = cookies["user_auth"];
+    if (!token) {
+      console.error("No auth token found in socket connection");
+      return;
+    }
     const { isValid, user } = await checkUserAuth(token);
     if (!isValid || !user) {
       console.error("Invalid user");
@@ -37,8 +64,34 @@ io.use(
   },
 );
 
+export const onlineUsersList = new Map<string, number>();
+
 io.on("connection", async (socket) => {
   const { id, name } = socket.data.user;
+  const wasOffline = !onlineUsersList.has(id);
+  onlineUsersList.set(id, (onlineUsersList.get(id) || 0) + 1);
+
+  // Notify all channels this user belongs to that they've come online
+  if (wasOffline) {
+    const userChannels = await ChannelModel.find({ members: id }).select({ _id: 1 });
+    for (const ch of userChannels) {
+      io.to(ch._id.toString()).emit("user_presence", { userId: id, status: "online" });
+    }
+  }
+
+  socket.on("disconnect", async () => {
+    const count = onlineUsersList.get(id) || 0;
+    if (count > 1) {
+      onlineUsersList.set(id, count - 1);
+    } else {
+      onlineUsersList.delete(id);
+      // Notify all channels this user belongs to that they've gone offline
+      const userChannels = await ChannelModel.find({ members: id }).select({ _id: 1 });
+      for (const ch of userChannels) {
+        io.to(ch._id.toString()).emit("user_presence", { userId: id, status: "offline" });
+      }
+    }
+  });
 
   socket.on("join_channel", async (payload, callback) => {
     socket.join(payload.channelId);

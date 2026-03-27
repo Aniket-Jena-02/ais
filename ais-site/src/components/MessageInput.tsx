@@ -32,22 +32,25 @@ const MessageInput = ({ onSendMessage, placeholder, disabled, onTyping }: Messag
     }
 
     return (
-        <div className="p-4 md:p-6 bg-linear-to-t from-base-100 via-base-100 to-transparent">
-            <div className="max-w-6xl mx-auto relative">
+        <div className="p-4 md:px-8 md:pb-8 bg-brand-dark">
+            <div className="max-w-5xl mx-auto relative">
                 <div className="relative group">
                     <form
                         onSubmit={(e) => handleSubmit(e)}
-                        className={`flex flex-col bg-base-200/40 backdrop-blur-md rounded-2xl border transition-all duration-300 shadow-sm
+                        className={`flex flex-col bg-brand-surface/60 backdrop-blur-md rounded-xl border transition-all duration-300
                             ${disabled ? 'opacity-50 pointer-events-none' : ''}
-                            focus-within:bg-base-200/80 focus-within:border-primary/40 focus-within:shadow-2xl focus-within:shadow-primary/5
-                            border-base-content/5
+                            focus-within:bg-brand-surface/90 focus-within:border-brand-accent/40 focus-within:shadow-[0_0_20px_rgba(110,64,242,0.05)]
+                            border-white/5
                         `}
                     >
                         <div className="flex items-end pr-2 py-2">
                             {/* Attach Button */}
                             <div className="pl-2 pb-2">
-                                <button type="button" className="btn btn-ghost btn-circle btn-sm hover:rotate-90 transition-transform">
-                                    <PlusCircle size={22} className="text-base-content/50" />
+                                <button
+                                    type="button"
+                                    className="p-2 rounded-full text-white/40 hover:text-white/70 hover:bg-white/5 transition-all duration-200"
+                                >
+                                    <PlusCircle size={22} />
                                 </button>
                             </div>
 
@@ -61,25 +64,31 @@ const MessageInput = ({ onSendMessage, placeholder, disabled, onTyping }: Messag
                                 }}
                                 onKeyDown={handleKeyDown}
                                 placeholder={placeholder || "Type a message..."}
-                                className="textarea textarea-ghost focus:bg-transparent w-full resize-none min-h-[44px] max-h-48 py-3 px-3 text-base leading-snug focus:outline-none placeholder:text-base-content/30 font-medium"
+                                className="w-full bg-transparent resize-none min-h-[44px] max-h-48 py-3 px-3 text-[15px] leading-relaxed text-white focus:outline-none placeholder:text-white/20 font-medium font-sans"
                             />
 
                             {/* Action Buttons Right */}
                             <div className="flex items-center gap-1 pb-1">
-                                <button type="button" className="hidden sm:flex btn btn-ghost btn-circle btn-sm">
-                                    <Gift size={20} className="text-base-content/40" />
+                                <button
+                                    type="button"
+                                    className="hidden sm:flex p-2 rounded-full text-white/30 hover:text-white/60 hover:bg-white/5 transition-all"
+                                >
+                                    <Gift size={20} />
                                 </button>
-                                <button type="button" className="btn btn-ghost btn-circle btn-sm">
-                                    <Smile size={20} className="text-base-content/40" />
+                                <button
+                                    type="button"
+                                    className="p-2 rounded-full text-white/30 hover:text-white/60 hover:bg-white/5 transition-all"
+                                >
+                                    <Smile size={20} />
                                 </button>
 
-                                <div className="w-px h-6 bg-base-content/10 mx-1 hidden sm:block" />
+                                <div className="w-px h-6 bg-white/5 mx-1 hidden sm:block" />
 
                                 <button
                                     type="submit"
                                     disabled={!inputValue.trim() || disabled}
-                                    className={`btn btn-circle btn-sm transition-all duration-300
-                                        ${inputValue.trim() ? 'btn-primary shadow-lg shadow-primary/30 scale-100 rotate-0' : 'btn-ghost opacity-40 scale-90 -rotate-12'}
+                                    className={`w-9 h-9 rounded-full flex items-center justify-center transition-all duration-300
+                                        ${inputValue.trim() ? 'bg-brand-accent text-white shadow-lg shadow-brand-accent/20 translate-y-0 opacity-100' : 'bg-white/5 text-white/20 opacity-40 translate-y-0'}
                                     `}
                                 >
                                     <Send size={18} />
@@ -90,16 +99,16 @@ const MessageInput = ({ onSendMessage, placeholder, disabled, onTyping }: Messag
 
                     {/* Status / Hints */}
                     <div className="absolute -bottom-6 left-4 flex gap-6 select-none pointer-events-none">
-                        <div className="hidden sm:flex items-center gap-1.5">
-                            <span className="text-[9px] font-bold uppercase tracking-widest text-base-content/30 group-focus-within:opacity-100 opacity-0 transition-opacity duration-500">
-                                <span className="text-primary/60">Shift + Enter</span> for new line
+                        <div className="hidden sm:flex items-center gap-1.5 opacity-0 group-focus-within:opacity-100 transition-opacity duration-500">
+                            <span className="text-[10px] font-bold uppercase tracking-wider text-white/20">
+                                <span className="text-brand-accent/60">Shift + Enter</span> for new line
                             </span>
                         </div>
                     </div>
                 </div>
             </div>
         </div>
-    )
+    );
 }
 
 export default MessageInput
