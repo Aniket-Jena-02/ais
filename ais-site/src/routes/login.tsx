@@ -47,7 +47,7 @@ function RouteComponent() {
       if (res.ok) {
         console.log(await res.json());
         r.navigate({
-          to: "/",
+          to: "/channels",
         });
         return
       }
@@ -76,7 +76,7 @@ function RouteComponent() {
   return (
     <div className="min-h-screen bg-brand-dark flex flex-col items-center justify-center p-6 relative overflow-hidden font-sans">
       {/* Background Graphic Effects */}
-      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-brand-accent/5 rounded-full mix-blend-screen filter blur-3xl opacity-20 pointer-events-none" />
+      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-brand-accent/5 rounded-full filter blur-[120px] pointer-events-none" />
 
       {/* Login Card */}
       <motion.div
@@ -85,8 +85,8 @@ function RouteComponent() {
         initial="hidden"
         animate="visible"
       >
-        <div className="bg-brand-muted/40 backdrop-blur-3xl rounded-[40px] shadow-2xl border border-white/5 p-10 sm:p-14 overflow-hidden relative">
-          
+        <div className="bg-brand-surface/60 backdrop-blur-3xl rounded-[40px] shadow-2xl border border-white/6 p-10 sm:p-14 overflow-hidden relative">
+
           {/* Subtle top light effect */}
           <div className="absolute top-0 inset-x-0 h-px bg-linear-to-r from-transparent via-white/10 to-transparent" />
 
@@ -107,7 +107,7 @@ function RouteComponent() {
               <label className="text-[10px] font-black uppercase tracking-[0.2em] text-white/30 ml-1">
                 Identity Profile
               </label>
-              <div className={`flex items-center gap-3 bg-brand-muted/40 rounded-2xl p-4 border transition-all duration-300 ${errors.email ? 'border-red-500/50' : 'border-white/5 focus-within:border-brand-accent/40 focus-within:bg-brand-muted/60'}`}>
+              <div className={`flex items-center gap-3 bg-brand-dark/50 rounded-2xl p-4 border transition-all duration-300 ${errors.email ? 'border-red-500/50' : 'border-white/5 focus-within:border-brand-accent/40 focus-within:bg-brand-muted/60'}`}>
                 <Mail className="shrink-0 text-white/20" size={18} />
                 <input
                   type="email"
@@ -127,7 +127,7 @@ function RouteComponent() {
               <label className="text-[10px] font-black uppercase tracking-[0.2em] text-white/30 ml-1">
                 Security Key
               </label>
-              <div className={`flex items-center gap-3 bg-brand-muted/40 rounded-2xl p-4 border transition-all duration-300 ${errors.password ? 'border-red-500/50' : 'border-white/5 focus-within:border-brand-accent/40 focus-within:bg-brand-muted/60'}`}>
+              <div className={`flex items-center gap-3 bg-brand-dark/50 rounded-2xl p-4 border transition-all duration-300 ${errors.password ? 'border-red-500/50' : 'border-white/5 focus-within:border-brand-accent/40 focus-within:bg-brand-muted/60'}`}>
                 <Key className="shrink-0 text-white/20" size={18} />
                 <input
                   type="password"
@@ -158,7 +158,7 @@ function RouteComponent() {
                 </>
               )}
             </motion.button>
-            
+
             {serverError && (
               <div className="text-center mt-6 animate-in fade-in zoom-in duration-300">
                 <p className="text-[11px] text-red-500 font-black uppercase tracking-wider bg-red-500/10 py-3 px-6 rounded-xl inline-block border border-red-500/20">
@@ -177,6 +177,12 @@ function RouteComponent() {
             className="text-[10px] font-black uppercase tracking-[0.3em] text-white/20 hover:text-brand-accent transition-all duration-300"
           >
             Don't have an account? Register
+          </Link>
+          <Link
+            to="/"
+            className="text-[10px] font-bold uppercase tracking-[0.2em] text-white/15 hover:text-white/40 transition-all duration-300"
+          >
+            ← Back to Home
           </Link>
         </motion.div>
       </motion.div>

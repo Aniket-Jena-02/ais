@@ -33,10 +33,10 @@ const UserProfileFooter = () => {
       initial={{ y: 10, opacity: 0 }}
       animate={{ y: 0, opacity: 1 }}
       transition={{ duration: 0.4, delay: 0.2, ease: "easeOut" }}
-      className="p-3 border-t border-white/5 bg-brand-dark/50 shrink-0 mt-auto flex items-center justify-between gap-2"
+      className="p-3 border-t border-white/4 bg-brand-surface/30 shrink-0 mt-auto flex items-center justify-between gap-2"
     >
       <div className="flex items-center gap-2.5 min-w-0 flex-1 hover:bg-white/5 p-1.5 -ml-1.5 rounded-lg cursor-pointer transition-all duration-200">
-        <div className="w-8 h-8 shrink-0 rounded-full bg-brand-accent flex items-center justify-center shadow-lg shadow-brand-accent/20 text-white font-black text-xs">
+        <div className="w-8 h-8 shrink-0 rounded-xl bg-brand-accent flex items-center justify-center shadow-lg shadow-brand-accent/20 text-white font-black text-xs ring-1 ring-inset ring-white/20 rotate-3 group-hover:rotate-0 transition-transform duration-300">
           {firstLetter}
         </div>
         <div className="flex flex-col min-w-0">

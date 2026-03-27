@@ -37,17 +37,17 @@ const MessageInput = ({ onSendMessage, placeholder, disabled, onTyping }: Messag
                 <div className="relative group">
                     <form
                         onSubmit={(e) => handleSubmit(e)}
-                        className={`flex flex-col bg-brand-muted/40 backdrop-blur-md rounded-xl border transition-all duration-300
+                        className={`flex flex-col bg-brand-surface/60 backdrop-blur-md rounded-xl border transition-all duration-300
                             ${disabled ? 'opacity-50 pointer-events-none' : ''}
-                            focus-within:bg-brand-muted/80 focus-within:border-brand-accent/40 focus-within:shadow-[0_0_20px_rgba(75,43,238,0.05)]
+                            focus-within:bg-brand-surface/90 focus-within:border-brand-accent/40 focus-within:shadow-[0_0_20px_rgba(110,64,242,0.05)]
                             border-white/5
                         `}
                     >
                         <div className="flex items-end pr-2 py-2">
                             {/* Attach Button */}
                             <div className="pl-2 pb-2">
-                                <button 
-                                    type="button" 
+                                <button
+                                    type="button"
                                     className="p-2 rounded-full text-white/40 hover:text-white/70 hover:bg-white/5 transition-all duration-200"
                                 >
                                     <PlusCircle size={22} />
@@ -69,14 +69,14 @@ const MessageInput = ({ onSendMessage, placeholder, disabled, onTyping }: Messag
 
                             {/* Action Buttons Right */}
                             <div className="flex items-center gap-1 pb-1">
-                                <button 
-                                    type="button" 
+                                <button
+                                    type="button"
                                     className="hidden sm:flex p-2 rounded-full text-white/30 hover:text-white/60 hover:bg-white/5 transition-all"
                                 >
                                     <Gift size={20} />
                                 </button>
-                                <button 
-                                    type="button" 
+                                <button
+                                    type="button"
                                     className="p-2 rounded-full text-white/30 hover:text-white/60 hover:bg-white/5 transition-all"
                                 >
                                     <Smile size={20} />

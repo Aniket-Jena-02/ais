@@ -19,25 +19,25 @@ interface MessageItemProps {
 const MessageItem = ({ message, consecutive = false }: MessageItemProps) => {
     // Generate a consistent color based on the user's name
     const colors = [
-        "bg-red-500/10 text-red-600",
-        "bg-blue-500/10 text-blue-600",
-        "bg-emerald-500/10 text-emerald-600",
-        "bg-purple-500/10 text-purple-600",
-        "bg-amber-500/10 text-amber-600",
-        "bg-pink-500/10 text-pink-600",
-        "bg-indigo-500/10 text-indigo-600",
+        "bg-red-500/10 text-red-400 ring-red-500/20",
+        "bg-blue-500/10 text-blue-400 ring-blue-500/20",
+        "bg-emerald-500/10 text-emerald-400 ring-emerald-500/20",
+        "bg-purple-500/10 text-purple-400 ring-purple-500/20",
+        "bg-amber-500/10 text-amber-400 ring-amber-500/20",
+        "bg-pink-500/10 text-pink-400 ring-pink-500/20",
+        "bg-indigo-500/10 text-indigo-400 ring-indigo-500/20",
     ]
     const colorIndex = message.author?.name ? message.author.name.length % colors.length : 0
     const colorClass = colors[colorIndex]
 
     return (
         <div
-            className={`group relative flex gap-4 px-6 md:px-8 hover:bg-white/[0.02] transition-colors animate-in slide-in-from-bottom-1 duration-300 fill-mode-both ${consecutive ? 'py-0 mt-0' : 'py-1 mt-6'}`}
+            className={`group relative flex gap-4 px-6 md:px-8 hover:bg-white/2 transition-colors animate-in slide-in-from-bottom-1 duration-300 fill-mode-both ${consecutive ? 'py-0 mt-0' : 'py-1 mt-6'}`}
         >
             {/* Left Gutter: Avatar (empty on consecutive messages) */}
             <div className="shrink-0 w-10 flex flex-col items-center">
                 {!consecutive && (
-                    <div className={`w-10 h-10 rounded-full flex items-center justify-center text-[15px] font-black shadow-lg ${colorClass}`}>
+                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-[15px] font-black shadow-lg ring-1 ring-inset ${colorClass} transition-transform group-hover:scale-105 duration-300`}>
                         {message.author?.name ? message.author.name.charAt(0).toUpperCase() : <User size={18} />}
                     </div>
                 )}
@@ -51,9 +51,9 @@ const MessageItem = ({ message, consecutive = false }: MessageItemProps) => {
                             {message.author?.name || "Unknown User"}
                         </span>
                         {isValid(new Date(message.createdAt)) && (
-                          <span className="text-[10px] text-white/20 font-bold uppercase tracking-widest">
-                              {format(new Date(message.createdAt), "h:mm a")}
-                          </span>
+                            <span className="text-[10px] text-white/20 font-bold uppercase tracking-widest">
+                                {format(new Date(message.createdAt), "h:mm a")}
+                            </span>
                         )}
                     </div>
                 )}
@@ -70,7 +70,7 @@ const MessageItem = ({ message, consecutive = false }: MessageItemProps) => {
                         {format(new Date(message.createdAt), "h:mm a")}
                     </span>
                 )}
-                <div className="flex items-center gap-0.5 bg-brand-dark border border-white/5 shadow-2xl rounded-lg p-0.5">
+                <div className="flex items-center gap-0.5 bg-brand-surface border border-white/4 shadow-2xl rounded-lg p-0.5">
                     <button className="p-1.5 rounded-md text-white/30 hover:text-white hover:bg-white/5 transition-all" title="Reply">
                         <Reply size={14} />
                     </button>

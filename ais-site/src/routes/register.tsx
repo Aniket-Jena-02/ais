@@ -74,7 +74,7 @@ function RegisterComponent() {
   return (
     <div className="min-h-screen bg-brand-dark flex flex-col items-center justify-center p-6 relative overflow-hidden font-sans">
       {/* Background Graphic Effects */}
-      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-brand-accent/5 rounded-full mix-blend-screen filter blur-3xl opacity-20 pointer-events-none" />
+      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-brand-accent/5 rounded-full filter blur-[120px] pointer-events-none" />
 
       {/* Register Card */}
       <motion.div
@@ -83,8 +83,8 @@ function RegisterComponent() {
         initial="hidden"
         animate="visible"
       >
-        <div className="bg-brand-muted/40 backdrop-blur-3xl rounded-[40px] shadow-2xl border border-white/5 p-10 sm:p-14 overflow-hidden relative">
-          
+        <div className="bg-brand-surface/60 backdrop-blur-3xl rounded-[40px] shadow-2xl border border-white/6 p-10 sm:p-14 overflow-hidden relative">
+
           {/* Subtle top light effect */}
           <div className="absolute top-0 inset-x-0 h-px bg-linear-to-r from-transparent via-white/10 to-transparent" />
 
@@ -105,7 +105,7 @@ function RegisterComponent() {
               <label className="text-[10px] font-black uppercase tracking-[0.2em] text-white/30 ml-1">
                 Display Name
               </label>
-              <div className={`flex items-center gap-3 bg-brand-muted/40 rounded-2xl p-4 border transition-all duration-300 ${errors.name ? 'border-red-500/50' : 'border-white/5 focus-within:border-brand-accent/40 focus-within:bg-brand-muted/60'}`}>
+              <div className={`flex items-center gap-3 bg-brand-dark/50 rounded-2xl p-4 border transition-all duration-300 ${errors.name ? 'border-red-500/50' : 'border-white/5 focus-within:border-brand-accent/40 focus-within:bg-brand-muted/60'}`}>
                 <User className="shrink-0 text-white/20" size={18} />
                 <input
                   type="text"
@@ -125,7 +125,7 @@ function RegisterComponent() {
               <label className="text-[10px] font-black uppercase tracking-[0.2em] text-white/30 ml-1">
                 Identity Profile
               </label>
-              <div className={`flex items-center gap-3 bg-brand-muted/40 rounded-2xl p-4 border transition-all duration-300 ${errors.email ? 'border-red-500/50' : 'border-white/5 focus-within:border-brand-accent/40 focus-within:bg-brand-muted/60'}`}>
+              <div className={`flex items-center gap-3 bg-brand-dark/50 rounded-2xl p-4 border transition-all duration-300 ${errors.email ? 'border-red-500/50' : 'border-white/5 focus-within:border-brand-accent/40 focus-within:bg-brand-muted/60'}`}>
                 <Mail className="shrink-0 text-white/20" size={18} />
                 <input
                   type="email"
@@ -145,7 +145,7 @@ function RegisterComponent() {
               <label className="text-[10px] font-black uppercase tracking-[0.2em] text-white/30 ml-1">
                 Security Key
               </label>
-              <div className={`flex items-center gap-3 bg-brand-muted/40 rounded-2xl p-4 border transition-all duration-300 ${errors.password ? 'border-red-500/50' : 'border-white/5 focus-within:border-brand-accent/40 focus-within:bg-brand-muted/60'}`}>
+              <div className={`flex items-center gap-3 bg-brand-dark/50 rounded-2xl p-4 border transition-all duration-300 ${errors.password ? 'border-red-500/50' : 'border-white/5 focus-within:border-brand-accent/40 focus-within:bg-brand-muted/60'}`}>
                 <Key className="shrink-0 text-white/20" size={18} />
                 <input
                   type="password"
@@ -177,7 +177,7 @@ function RegisterComponent() {
                 )}
               </button>
             </motion.div>
-            
+
             {serverError && (
               <motion.div
                 initial={{ opacity: 0, scale: 0.95 }}
@@ -199,6 +199,12 @@ function RegisterComponent() {
             className="text-[10px] font-black uppercase tracking-[0.3em] text-white/20 hover:text-brand-accent transition-all duration-300"
           >
             Already have an account? Log in
+          </Link>
+          <Link
+            to="/"
+            className="text-[10px] font-bold uppercase tracking-[0.2em] text-white/15 hover:text-white/40 transition-all duration-300"
+          >
+            ← Back to Home
           </Link>
         </motion.div>
       </motion.div>

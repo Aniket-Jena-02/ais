@@ -267,7 +267,7 @@ const ChatArea = () => {
     return (
         <div className="flex flex-col h-full bg-brand-dark relative overflow-hidden">
             {/* Chat Header */}
-            <div className="h-14 flex items-center justify-between px-6 border-b border-white/5 bg-brand-dark/80 backdrop-blur-md sticky top-0 z-20 shrink-0 shadow-sm">
+            <div className="h-14 flex items-center justify-between px-6 border-b border-white/4 bg-brand-surface/50 backdrop-blur-md sticky top-0 z-20 shrink-0 shadow-sm">
                 <div className="flex items-center gap-3 max-w-full">
                     <Hash size={20} className="text-white/20 shrink-0" />
                     <h2 className="text-lg font-black text-white font-serif tracking-tight truncate">
@@ -363,7 +363,7 @@ const ChatArea = () => {
                         </span>
                     </div>
                 )}
-                
+
                 <MessageInput
                     onSendMessage={handleSendMessage}
                     placeholder={isConnecting ? "Connecting to server..." : `Message in #${channelData?.channel.name || 'channel'}`}
@@ -373,7 +373,7 @@ const ChatArea = () => {
 
                 {/* Connection Status Overlay */}
                 <div className="absolute top-0 right-12 select-none pointer-events-none -translate-y-1/2 z-30">
-                    <div className="flex items-center gap-2 px-3 py-1 bg-brand-dark rounded-full border border-white/5 shadow-xl">
+                    <div className="flex items-center gap-2 px-3 py-1 bg-brand-surface rounded-full border border-white/4 shadow-xl">
                         <div className={`w-2 h-2 rounded-full ${isConnecting ? 'bg-amber-500 animate-pulse' : 'bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.3)]'}`} />
                         <span className="text-[9px] font-black uppercase tracking-widest text-white/40">
                             {isConnecting ? 'Connecting' : 'Operational'}

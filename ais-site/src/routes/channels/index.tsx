@@ -22,7 +22,7 @@ function Component() {
             Select a channel from the sidebar to start chatting or create a new one to begin your journey.
           </p>
 
-          <div className="bg-brand-muted/20 backdrop-blur-md rounded-2xl border border-white/5 shadow-2xl p-10 text-left max-w-md mx-auto">
+          <div className="bg-brand-surface/40 backdrop-blur-md rounded-2xl border border-white/[0.05] shadow-2xl p-10 text-left max-w-md mx-auto">
              <h3 className="font-black text-[12px] uppercase tracking-[0.2em] mb-6 text-white/40">Getting Started</h3>
              <ul className="space-y-6">
                <li className="flex items-center gap-5 group">

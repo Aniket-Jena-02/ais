@@ -37,7 +37,7 @@ const UserChannels = () => {
   // Loading State
   if (isLoading) {
     return (
-      <div className="w-64 h-full bg-brand-dark flex items-center justify-center border-r border-white/5">
+      <div className="w-64 h-full bg-brand-surface/50 flex items-center justify-center border-r border-white/4">
         <Loader2 className="w-6 h-6 animate-spin text-brand-accent opacity-50" />
       </div>
     );
@@ -46,7 +46,7 @@ const UserChannels = () => {
   // Error State
   if (isError) {
     return (
-      <div className="w-64 h-full bg-brand-dark border-r border-white/5 p-4 flex flex-col justify-center items-center text-center gap-3">
+      <div className="w-64 h-full bg-brand-surface/50 border-r border-white/4 p-4 flex flex-col justify-center items-center text-center gap-3">
         <div className="w-12 h-12 rounded-full bg-brand-accent/10 flex items-center justify-center text-brand-accent">
           <Hash size={24} />
         </div>
@@ -59,19 +59,19 @@ const UserChannels = () => {
   }
 
   return (
-    <div className="flex flex-col w-64 h-full bg-brand-dark border-r border-white/5 relative z-50">
-      
+    <div className="flex flex-col w-64 h-full bg-brand-surface/50 border-r border-white/4 relative z-50">
+
       {/* Header */}
       <motion.div
         initial={{ y: -10, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
         transition={{ duration: 0.4, ease: "easeOut" }}
-        className="h-14 flex items-center justify-between px-6 border-b border-white/5 shrink-0 bg-brand-dark backdrop-blur-md sticky top-0 z-10"
+        className="h-14 flex items-center justify-between px-6 border-b border-white/4 shrink-0 bg-brand-surface/70 backdrop-blur-md sticky top-0 z-10"
       >
         <h2 className="text-lg font-black text-white font-serif tracking-tight">
           Channels
         </h2>
-        <button 
+        <button
           onClick={() => setIsModalOpen(true)}
           className="p-1.5 rounded-full text-white/50 hover:text-white hover:bg-white/5 transition-all duration-200 hover:rotate-90 active:scale-90"
         >

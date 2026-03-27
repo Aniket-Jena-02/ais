@@ -97,11 +97,11 @@ const AddMemberModal = ({ isOpen, onClose, channelId }: AddMemberModalProps) => 
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 10 }}
             transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
-            className="bg-brand-dark rounded-2xl shadow-2xl w-full max-w-md border border-white/5 overflow-hidden flex flex-col"
+            className="bg-brand-surface rounded-2xl shadow-2xl w-full max-w-md border border-white/5 overflow-hidden flex flex-col"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header */}
-            <div className="px-8 py-6 border-b border-white/5 bg-brand-dark/50">
+            <div className="px-8 py-6 border-b border-white/4 bg-brand-surface/80">
               <h2 className="text-2xl font-black text-white font-serif tracking-tight flex items-center gap-3">
                 <UserPlus size={24} className="text-brand-accent/60" />
                 Add Member
@@ -115,7 +115,7 @@ const AddMemberModal = ({ isOpen, onClose, channelId }: AddMemberModalProps) => 
                   <label className="text-[10px] font-black uppercase tracking-[0.2em] text-white/30 ml-1">
                     User Email
                   </label>
-                  <div className={`flex items-center gap-3 bg-brand-muted/40 rounded-lg p-3 border transition-all duration-300 ${errors.email || mutation.isError ? 'border-red-500/50' : mutation.isSuccess ? 'border-emerald-500/50' : 'border-white/5 focus-within:border-brand-accent/40 focus-within:bg-brand-muted/60'}`}>
+                  <div className={`flex items-center gap-3 bg-brand-dark/50 rounded-lg p-3 border transition-all duration-300 ${errors.email || mutation.isError ? 'border-red-500/50' : mutation.isSuccess ? 'border-emerald-500/50' : 'border-white/6 focus-within:border-brand-accent/40 focus-within:bg-brand-dark/70'}`}>
                     <Mail className="shrink-0 text-white/20" size={18} />
                     <input
                       type="email"
@@ -157,7 +157,7 @@ const AddMemberModal = ({ isOpen, onClose, channelId }: AddMemberModalProps) => 
               </div>
 
               {/* Footer Actions */}
-              <div className="px-8 py-6 bg-brand-muted/20 flex justify-end gap-3 border-t border-white/5">
+              <div className="px-8 py-6 bg-brand-dark/30 flex justify-end gap-3 border-t border-white/4">
                 <button
                   type="button"
                   onClick={onClose}

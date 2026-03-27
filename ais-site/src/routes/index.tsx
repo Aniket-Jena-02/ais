@@ -1,257 +1,498 @@
-import { Link, createFileRoute } from "@tanstack/react-router";
-import { motion } from "framer-motion";
-import { 
-  ShieldCheck, 
-  Zap, 
-  Hash, 
+import { Link, createFileRoute, redirect } from "@tanstack/react-router";
+import { motion, useScroll, useTransform } from "framer-motion";
+import {
+  ShieldCheck,
+  Zap,
+  Hash,
   ArrowRight,
-  LogIn
+  LogIn,
+  UserPlus,
+  MessageSquare,
+  Users,
+  Globe,
+  Lock,
+  Sparkles,
 } from "lucide-react";
+import { useRef } from "react";
+import { useInViewport, useCounter } from "ahooks";
 
-export const Route = createFileRoute("/")({ component: LandingPage });
+export const Route = createFileRoute("/")({
+  component: LandingPage,
+  beforeLoad: async () => {
+    let isAuthenticated = false;
+    try {
+      const res = await fetch(`${import.meta.env.VITE_API}/auth/me`, {
+        credentials: "include"
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data && data.userName) {
+          isAuthenticated = true;
+        }
+      }
+    } catch (e) {
+      // ignore fetch errors
+    }
+    
+    if (isAuthenticated) {
+      throw redirect({ to: "/channels" });
+    }
+  }
+});
+
+// Animated counter component using ahooks
+function AnimatedStat({ end, suffix = "", label }: { end: number; suffix?: string; label: string }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [inViewport] = useInViewport(ref);
+  const [count, { set }] = useCounter(0, { min: 0, max: end });
+
+  // Animate count when in viewport
+  if (inViewport && count < end) {
+    const step = Math.max(1, Math.floor(end / 60));
+    setTimeout(() => set((prev) => Math.min(prev + step, end)), 16);
+  }
+
+  return (
+    <div ref={ref} className="text-center">
+      <div className="text-5xl md:text-6xl font-black font-serif tracking-tight text-white tabular-nums">
+        {count.toLocaleString()}{suffix}
+      </div>
+      <div className="text-[10px] font-bold uppercase tracking-[0.25em] text-white/25 mt-3">
+        {label}
+      </div>
+    </div>
+  );
+}
+
+// Scroll-triggered reveal for sections using ahooks
+function RevealSection({ children, className = "", delay = 0 }: { children: React.ReactNode; className?: string; delay?: number }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [inViewport] = useInViewport(ref, { threshold: 0.15 });
+
+  return (
+    <div
+      ref={ref}
+      className={`transition-all duration-1000 ease-out ${inViewport
+        ? "opacity-100 translate-y-0"
+        : "opacity-0 translate-y-12"
+        } ${className}`}
+      style={{ transitionDelay: `${delay}ms` }}
+    >
+      {children}
+    </div>
+  );
+}
 
 function LandingPage() {
-  const containerVariants = {
-    hidden: { opacity: 0 },
-    visible: {
-      opacity: 1,
-      transition: {
-        staggerChildren: 0.15,
-        delayChildren: 0.2
-      }
-    }
-  };
+  const heroRef = useRef<HTMLDivElement>(null);
+  const { scrollYProgress } = useScroll({
+    target: heroRef,
+    offset: ["start start", "end start"],
+  });
+  const heroOpacity = useTransform(scrollYProgress, [0, 1], [1, 0]);
+  const heroScale = useTransform(scrollYProgress, [0, 1], [1, 0.95]);
+  const heroY = useTransform(scrollYProgress, [0, 1], [0, 100]);
 
-  const itemVariants = {
-    hidden: { opacity: 0, y: 30 },
-    visible: {
-      opacity: 1,
-      y: 0,
-      transition: { duration: 0.6, ease: "easeOut" }
-    }
-  };
+  const features = [
+    {
+      icon: Zap,
+      title: "Real-time Messaging",
+      description: "WebSocket-powered delivery with sub-100ms latency. Every keystroke, every message — instantly.",
+      accent: "brand-accent",
+    },
+    {
+      icon: Hash,
+      title: "Organized Channels",
+      description: "Structure conversations by topic, team, or project. Scale from 2 people to 200 seamlessly.",
+      accent: "brand-accent",
+    },
+    {
+      icon: ShieldCheck,
+      title: "Robust Security",
+      description: "HTTP-only cookies, bcrypt hashing, and channel-level ACL built right into the core.",
+      accent: "emerald-500",
+    },
+  ];
+
+  const capabilities = [
+    { icon: MessageSquare, label: "Instant Messaging" },
+    { icon: Users, label: "Team Channels" },
+    { icon: Lock, label: "Encrypted Auth" },
+    { icon: Globe, label: "Cross-Platform" },
+    { icon: Sparkles, label: "Live Indicators" },
+    { icon: Zap, label: "Zero Latency" },
+  ];
 
   return (
     <div className="min-h-screen bg-brand-dark relative overflow-x-hidden selection:bg-brand-accent/30 font-sans">
-      {/* Background Graphic Effects */}
-      <div className="absolute top-1/4 left-1/4 w-[600px] h-[600px] bg-brand-accent/10 rounded-full mix-blend-screen filter blur-3xl opacity-20 animate-blob pointer-events-none" />
-      <div className="absolute bottom-1/4 right-1/4 w-[600px] h-[600px] bg-brand-accent/5 rounded-full mix-blend-screen filter blur-3xl opacity-20 animate-blob animation-delay-2000 pointer-events-none" />
+      {/* Background ambient effects */}
+      <div className="fixed inset-0 pointer-events-none z-0">
+        <div className="absolute top-0 left-1/3 w-[800px] h-[800px] bg-brand-accent/8 rounded-full filter blur-[120px] animate-blob" />
+        <div className="absolute bottom-1/4 right-1/4 w-[600px] h-[600px] bg-brand-accent-soft/5 rounded-full filter blur-[100px] animate-blob animation-delay-2000" />
+        <div className="absolute top-1/2 right-1/3 w-[400px] h-[400px] bg-emerald-500/3 rounded-full filter blur-[80px] animate-blob animation-delay-4000" />
+      </div>
 
       {/* Navbar */}
-      <nav className="fixed w-full z-50 top-0 pt-6 px-8 md:px-12">
-        <motion.div 
-          initial={{ y: -50, opacity: 0 }}
+      <nav className="fixed w-full z-50 top-0 pt-4 md:pt-6 px-4 md:px-8">
+        <motion.div
+          initial={{ y: -40, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
-          transition={{ duration: 0.7, ease: "easeOut" }}
-          className="max-w-7xl mx-auto bg-brand-dark/40 backdrop-blur-2xl border border-white/5 rounded-2xl px-8 py-5 flex items-center justify-between shadow-2xl"
+          transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1] }}
+          className="max-w-7xl mx-auto bg-brand-dark/60 backdrop-blur-2xl border border-white/6 rounded-2xl px-6 md:px-8 py-4 flex items-center justify-between shadow-2xl shadow-black/20"
         >
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-brand-accent flex items-center justify-center shadow-lg rotate-3 group overflow-hidden">
-              <Hash size={22} className="text-white group-hover:rotate-12 transition-transform" />
+          <Link to="/" className="flex items-center gap-3 group">
+            <div className="w-10 h-10 rounded-xl bg-brand-accent flex items-center justify-center shadow-lg shadow-brand-accent/25 rotate-3 group-hover:rotate-6 transition-transform duration-500">
+              <Hash size={22} className="text-white" />
             </div>
-            <span className="text-2xl font-black tracking-tighter text-white font-serif">
+            <span className="text-xl md:text-2xl font-black tracking-tighter text-white font-serif">
               Ether Chat
             </span>
-          </div>
+          </Link>
 
-          <div className="flex items-center gap-8">
-            <Link 
-              to="/login"
-              className="text-sm font-black uppercase tracking-widest text-white/40 hover:text-white transition-all duration-300 flex items-center gap-2"
+          <div className="flex items-center gap-3 md:gap-6">
+            <Link
+              to="/about"
+              className="hidden md:block text-[11px] font-bold uppercase tracking-[0.15em] text-white/30 hover:text-white/70 transition-colors duration-300"
             >
-              <LogIn size={16} />
-              Login
+              About
             </Link>
-            <Link 
-              to="/channels"
-              className="px-6 py-2.5 bg-white text-brand-dark rounded-xl shadow-xl hover:scale-105 active:scale-95 transition-all duration-300 font-black text-xs uppercase tracking-widest hidden sm:flex"
+            <Link
+              to="/login"
+              className="text-[11px] font-bold uppercase tracking-[0.15em] text-white/40 hover:text-white transition-colors duration-300 flex items-center gap-2"
             >
-              Open App
+              <LogIn size={14} />
+              <span className="hidden sm:inline">Login</span>
+            </Link>
+            <Link
+              to="/register"
+              className="px-5 py-2.5 bg-brand-accent text-white rounded-xl shadow-lg shadow-brand-accent/20 hover:shadow-brand-accent/30 hover:scale-[1.03] active:scale-[0.97] transition-all duration-300 font-bold text-[11px] uppercase tracking-[0.15em] flex items-center gap-2"
+            >
+              <UserPlus size={14} />
+              <span className="hidden sm:inline">Register</span>
             </Link>
           </div>
         </motion.div>
       </nav>
 
       {/* Hero Section */}
-      <section className="relative z-10 pt-56 pb-40 px-8">
-        <motion.div 
-          className="max-w-7xl mx-auto flex flex-col items-center text-center"
-          variants={containerVariants}
-          initial="hidden"
-          animate="visible"
+      <section ref={heroRef} className="relative z-10 min-h-screen flex items-center pt-32 pb-20 px-4 md:px-8">
+        <motion.div
+          className="max-w-7xl mx-auto w-full flex flex-col items-center text-center"
+          style={{ opacity: heroOpacity, scale: heroScale, y: heroY }}
         >
-          <motion.div variants={itemVariants} className="inline-flex items-center gap-3 px-5 py-2.5 rounded-full border border-white/10 bg-white/5 text-white/60 text-[10px] font-black uppercase tracking-[0.2em] mb-12">
-            <span className="w-2 h-2 rounded-full bg-brand-accent animate-pulse shadow-[0_0_8px_rgba(75,43,238,0.5)]" />
+          {/* Status Badge */}
+          <motion.div
+            initial={{ opacity: 0, y: 20, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            transition={{ duration: 0.6, delay: 0.2 }}
+            className="inline-flex items-center gap-3 px-5 py-2.5 rounded-full border border-white/8 bg-white/3 text-white/50 text-[10px] font-bold uppercase tracking-[0.2em] mb-12 backdrop-blur-sm"
+          >
+            <span className="relative flex h-2.5 w-2.5">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-brand-accent opacity-50" />
+              <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-brand-accent shadow-[0_0_8px_rgba(110,64,242,0.5)]" />
+            </span>
             v2.0 Beta is Live
           </motion.div>
 
-          <motion.h1 
-            variants={itemVariants}
-            className="text-7xl md:text-[120px] font-black tracking-tight text-white font-serif leading-[0.9] mb-10 max-w-6xl"
+          {/* Headline */}
+          <motion.h1
+            initial={{ opacity: 0, y: 40 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.8, delay: 0.3, ease: [0.22, 1, 0.36, 1] }}
+            className="text-5xl sm:text-7xl md:text-8xl lg:text-[7.5rem] font-black tracking-tight text-white font-serif leading-[0.9] mb-8 max-w-5xl"
           >
-            Connect Beyond<br />
-            <span className="text-brand-accent">Boundaries.</span>
+            Connect Beyond
+            <br />
+            <span className="text-gradient gradient-to-r from-brand-accent via-brand-accent-soft to-brand-accent bg-size-[200%_auto] animate-gradient">
+              Boundaries.
+            </span>
           </motion.h1>
 
-          <motion.p 
-            variants={itemVariants}
-            className="text-xl md:text-2xl text-white/30 font-medium max-w-2xl mb-16 leading-relaxed"
+          {/* Subheadline */}
+          <motion.p
+            initial={{ opacity: 0, y: 30 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.8, delay: 0.45 }}
+            className="text-lg md:text-xl text-white/25 font-medium max-w-2xl mb-14 leading-relaxed"
           >
-            Lightning-fast communication meets intentional design. Built for teams who demand performance and premium aesthetics.
+            Lightning-fast communication meets intentional design.
+            <br className="hidden md:block" />
+            Built for teams who demand{" "}
+            <span className="text-white/50 font-bold">performance</span> and{" "}
+            <span className="text-white/50 font-bold">premium aesthetics</span>.
           </motion.p>
 
-          <motion.div variants={itemVariants} className="flex flex-col sm:flex-row items-center gap-6 w-full justify-center">
-            <Link 
-              to="/channels" 
-              className="px-10 py-5 bg-brand-accent text-white font-black uppercase tracking-[0.2em] text-xs rounded-2xl shadow-2xl shadow-brand-accent/20 hover:scale-105 active:scale-95 transition-all duration-300 flex items-center gap-3"
+          {/* CTA Buttons */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, delay: 0.6 }}
+            className="flex flex-col sm:flex-row items-center gap-4 sm:gap-5 w-full justify-center"
+          >
+            <Link
+              to="/register"
+              className="w-full sm:w-auto px-10 py-5 bg-brand-accent text-white font-black uppercase tracking-[0.15em] text-xs rounded-2xl shadow-2xl shadow-brand-accent/25 hover:shadow-brand-accent/40 hover:scale-[1.03] active:scale-[0.97] transition-all duration-300 flex items-center justify-center gap-3 group"
             >
-              Get Started <ArrowRight size={18} />
+              Get Started Free
+              <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform duration-300" />
             </Link>
-            <Link 
+            <Link
               to="/login"
-              className="px-10 py-5 bg-white/5 border border-white/10 text-white font-black uppercase tracking-[0.2em] text-xs rounded-2xl hover:bg-white/10 hover:scale-105 active:scale-95 transition-all duration-300"
+              className="w-full sm:w-auto px-10 py-5 bg-white/4 border border-white/8 text-white/70 font-black uppercase tracking-[0.15em] text-xs rounded-2xl hover:bg-white/8 hover:text-white hover:scale-[1.02] active:scale-[0.98] transition-all duration-300 flex items-center justify-center gap-3 backdrop-blur-sm"
             >
-              Log in to Account
+              <LogIn size={16} />
+              Sign In to Account
             </Link>
           </motion.div>
+
+          {/* Capability Pills */}
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 1, delay: 0.9 }}
+            className="flex flex-wrap justify-center gap-3 mt-16 max-w-2xl"
+          >
+            {capabilities.map(({ icon: Icon, label }, i) => (
+              <div
+                key={label}
+                className="flex items-center gap-2 px-4 py-2 rounded-full border border-white/6 bg-white/2 text-white/30 text-[10px] font-bold uppercase tracking-wider hover:bg-white/6 hover:text-white/50 transition-all duration-300 cursor-default animate-in fade-in slide-in-from-bottom-2 fill-mode-both"
+                style={{ animationDelay: `${800 + i * 100}ms`, animationDuration: "600ms" }}
+              >
+                <Icon size={12} />
+                {label}
+              </div>
+            ))}
+          </motion.div>
         </motion.div>
+      </section>
 
-        {/* Hero Image Mockup Component */}
-        <motion.div 
-          initial={{ y: 100, opacity: 0 }}
-          animate={{ y: 0, opacity: 1 }}
-          transition={{ duration: 1, delay: 0.6, ease: [0.22, 1, 0.36, 1] }}
-          className="max-w-6xl mx-auto mt-32 relative"
-        >
-           <div className="absolute inset-x-0 -top-px h-px bg-white/10" />
-           <div className="absolute inset-x-0 -bottom-px h-px bg-white/5" />
-           
-           <div className="aspect-[16/10] sm:aspect-video rounded-3xl overflow-hidden shadow-2xl border border-white/5 bg-brand-dark flex ring-1 ring-white/5">
-             
-             {/* Mock Sidebar */}
-             <div className="w-1/4 bg-brand-muted/20 border-r border-white/5 hidden md:flex flex-col p-6 gap-3">
-                <div className="h-4 w-1/2 bg-white/5 rounded-full mb-6" />
-                {[1,2,3,4].map((i) => (
-                  <div key={i} className="flex items-center gap-3 p-3 rounded-xl bg-white/[0.02]">
-                    <div className="w-6 h-6 rounded-lg bg-brand-accent/20 flex items-center justify-center">
-                      <Hash size={12} className="text-brand-accent" />
-                    </div>
-                    <div className="h-2 w-2/3 bg-white/10 rounded-full" />
-                  </div>
-                ))}
-             </div>
+      {/* App Preview Mockup */}
+      <section className="relative z-10 -mt-10 px-4 md:px-8 pb-32">
+        <RevealSection>
+          <div className="max-w-6xl mx-auto relative">
+            {/* Glow effect behind mockup */}
+            <div className="absolute inset-0 bg-brand-accent/5 rounded-3xl filter blur-3xl scale-95" />
 
-             {/* Mock Main Area */}
-             <div className="flex-1 bg-brand-dark flex flex-col p-8">
-                <div className="h-12 w-full border-b border-white/5 flex items-center mb-10 pb-6">
-                   <div className="h-5 w-48 bg-white/10 rounded-full" />
+            <div className="relative aspect-16/10 sm:aspect-video rounded-2xl md:rounded-3xl overflow-hidden shadow-2xl shadow-black/40 border border-white/6 bg-brand-dark flex ring-1 ring-white/3">
+
+              {/* Mock Sidebar */}
+              <div className="w-1/4 bg-brand-surface/80 border-r border-white/4 hidden md:flex flex-col">
+                {/* Sidebar header */}
+                <div className="px-5 py-4 border-b border-white/4 flex items-center justify-between">
+                  <div className="h-4 w-20 bg-white/10 rounded-full" />
+                  <div className="w-5 h-5 rounded bg-white/4" />
                 </div>
-                
-                <div className="flex-1 flex flex-col gap-8">
-                  {/* Mock Message 1 */}
-                  <div className="flex gap-5">
-                    <div className="w-12 h-12 rounded-full bg-brand-accent/20" />
-                    <div className="space-y-3 flex-1">
+                {/* Channel list */}
+                <div className="p-3 space-y-1 flex-1">
+                  {["general", "design", "engineering", "random"].map((name, i) => (
+                    <div
+                      key={name}
+                      className={`flex items-center gap-2.5 px-3 py-2 rounded-lg ${i === 0
+                        ? "bg-white/6 text-white/60"
+                        : "text-white/20"
+                        }`}
+                    >
+                      <Hash size={13} className={i === 0 ? "text-brand-accent" : "text-white/15"} />
+                      <div className="h-2.5 rounded-full bg-current" style={{ width: `${name.length * 8}px`, opacity: 0.6 }} />
+                    </div>
+                  ))}
+                </div>
+                {/* User at bottom */}
+                <div className="px-4 py-3 border-t border-white/4 flex items-center gap-2">
+                  <div className="w-7 h-7 rounded-full bg-brand-accent/30" />
+                  <div className="h-2.5 w-16 bg-white/10 rounded-full" />
+                </div>
+              </div>
+
+              {/* Mock Main Area */}
+              <div className="flex-1 bg-brand-dark flex flex-col">
+                {/* Channel header */}
+                <div className="h-14 border-b border-white/4 flex items-center px-6">
+                  <Hash size={16} className="text-white/15 mr-2" />
+                  <div className="h-4 w-24 bg-white/10 rounded-full" />
+                </div>
+
+                {/* Messages */}
+                <div className="flex-1 px-6 py-6 space-y-6">
+                  {/* Message 1 */}
+                  <div className="flex gap-4">
+                    <div className="w-10 h-10 rounded-full bg-blue-500/20 shrink-0" />
+                    <div className="space-y-2 flex-1">
                       <div className="flex items-center gap-3">
-                         <div className="h-3 w-32 bg-white/20 rounded-full" />
-                         <div className="h-2 w-16 bg-white/5 rounded-full" />
+                        <div className="h-3 w-28 bg-white/20 rounded-full" />
+                        <div className="h-2 w-12 bg-white/6 rounded-full" />
                       </div>
-                      <div className="h-4 w-3/4 bg-white/10 rounded-full" />
-                      <div className="h-4 w-1/2 bg-white/5 rounded-full" />
+                      <div className="h-3.5 w-3/4 bg-white/10 rounded-full" />
+                      <div className="h-3.5 w-1/2 bg-white/6 rounded-full" />
                     </div>
                   </div>
-                  
-                  {/* Mock Message 2 (Self) */}
-                  <div className="flex gap-5 flex-row-reverse">
-                    <div className="w-12 h-12 rounded-full bg-brand-accent shadow-lg shadow-brand-accent/20" />
-                    <div className="space-y-3 flex-1 flex flex-col items-end">
-                      <div className="flex items-center gap-3 flex-row-reverse">
-                         <div className="h-3 w-24 bg-brand-accent/40 rounded-full" />
-                         <div className="h-2 w-16 bg-white/5 rounded-full" />
+
+                  {/* Message 2 */}
+                  <div className="flex gap-4">
+                    <div className="w-10 h-10 rounded-full bg-brand-accent/30 shrink-0 shadow-lg shadow-brand-accent/10" />
+                    <div className="space-y-2 flex-1">
+                      <div className="flex items-center gap-3">
+                        <div className="h-3 w-20 bg-brand-accent/40 rounded-full" />
+                        <div className="h-2 w-12 bg-white/6 rounded-full" />
                       </div>
-                      <div className="h-4 w-2/3 bg-white/20 rounded-full" />
+                      <div className="h-3.5 w-2/3 bg-white/15 rounded-full" />
+                    </div>
+                  </div>
+
+                  {/* Message 3 */}
+                  <div className="flex gap-4">
+                    <div className="w-10 h-10 rounded-full bg-emerald-500/20 shrink-0" />
+                    <div className="space-y-2 flex-1">
+                      <div className="flex items-center gap-3">
+                        <div className="h-3 w-32 bg-white/15 rounded-full" />
+                        <div className="h-2 w-12 bg-white/6 rounded-full" />
+                      </div>
+                      <div className="h-3.5 w-4/5 bg-white/8 rounded-full" />
                     </div>
                   </div>
                 </div>
 
-                {/* Mock Input */}
-                <div className="h-14 w-full bg-brand-muted/40 border border-white/5 rounded-2xl mt-8 px-6 flex items-center">
-                   <div className="h-2 w-1/3 bg-white/5 rounded-full" />
+                {/* Typing indicator */}
+                <div className="px-6 pb-2">
+                  <div className="flex items-center gap-2 text-white/15">
+                    <div className="flex gap-1">
+                      <div className="w-1 h-1 rounded-full bg-current animate-pulse" />
+                      <div className="w-1 h-1 rounded-full bg-current animate-pulse animation-delay-2000" />
+                      <div className="w-1 h-1 rounded-full bg-current animate-pulse animation-delay-4000" />
+                    </div>
+                    <div className="h-2 w-24 bg-white/4 rounded-full" />
+                  </div>
                 </div>
-             </div>
-           </div>
-        </motion.div>
+
+                {/* Input */}
+                <div className="px-4 pb-4">
+                  <div className="h-12 w-full bg-brand-surface/60 border border-white/4 rounded-xl flex items-center px-4">
+                    <div className="h-2.5 w-1/3 bg-white/6 rounded-full" />
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </RevealSection>
+      </section>
+
+      {/* Stats Section */}
+      <section className="relative z-10 py-24 border-y border-white/4 bg-brand-surface/30 backdrop-blur-sm px-4 md:px-8">
+        <div className="max-w-5xl mx-auto grid grid-cols-2 md:grid-cols-4 gap-12">
+          <AnimatedStat end={99} suffix="%" label="Uptime" />
+          <AnimatedStat end={50} suffix="ms" label="Avg Latency" />
+          <AnimatedStat end={10000} suffix="+" label="Messages / Day" />
+          <AnimatedStat end={256} suffix="-bit" label="Encryption" />
+        </div>
       </section>
 
       {/* Features Grid */}
-      <section className="relative z-10 py-48 bg-brand-dark/50 border-t border-white/5 backdrop-blur-3xl px-8">
+      <section className="relative z-10 py-32 md:py-48 px-4 md:px-8">
         <div className="max-w-7xl mx-auto">
-          <div className="text-center mb-32">
-            <h2 className="text-5xl md:text-7xl font-black text-white tracking-tight font-serif mb-6">
-              Engineered for Power
+          <RevealSection className="text-center mb-24 md:mb-32">
+            <div className="inline-flex items-center gap-3 px-5 py-2.5 rounded-full border border-white/6 bg-white/2 text-white/40 text-[10px] font-bold uppercase tracking-[0.2em] mb-8">
+              Features
+            </div>
+            <h2 className="text-4xl md:text-6xl lg:text-7xl font-black text-white tracking-tight font-serif mb-6">
+              Engineered for{" "}
+              <span className="text-gradient gradient-to-r from-brand-accent to-brand-accent-soft">Power</span>
             </h2>
-            <p className="text-white/30 font-medium text-xl max-w-2xl mx-auto leading-relaxed">
-              We combined enterprise performance with the soul of a boutique design agency.
+            <p className="text-white/25 font-medium text-lg md:text-xl max-w-2xl mx-auto leading-relaxed">
+              Enterprise performance meets boutique design sensibility.
             </p>
-          </div>
+          </RevealSection>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-12">
-            {/* Feature 1 */}
-            <motion.div 
-              whileHover={{ y: -10 }}
-              transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
-              className="bg-brand-muted/20 backdrop-blur-2xl border border-white/5 rounded-[40px] p-12 shadow-2xl"
-            >
-              <div className="w-20 h-20 rounded-3xl bg-brand-accent/10 flex items-center justify-center mb-10 border border-brand-accent/20">
-                <Zap size={32} className="text-brand-accent" />
-              </div>
-              <h3 className="text-2xl font-black text-white mb-4 tracking-tight font-serif">Real-time Messaging</h3>
-              <p className="text-white/30 font-medium leading-relaxed">
-                Instant socket connections deliver your messages with zero friction and ultra-low latency.
-              </p>
-            </motion.div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-8">
+            {features.map((feature, index) => {
+              const Icon = feature.icon;
+              return (
+                <RevealSection key={feature.title} delay={index * 150}>
+                  <div className="group bg-brand-surface/40 backdrop-blur-xl border border-white/5 rounded-3xl p-10 md:p-12 shadow-xl hover:shadow-2xl hover:border-white/10 hover:-translate-y-2 transition-all duration-500 relative overflow-hidden">
+                    {/* Hover glow */}
+                    <div className="absolute inset-0 gradient-to-b from-brand-accent/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
 
-            {/* Feature 2 */}
-            <motion.div 
-              whileHover={{ y: -10 }}
-              transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
-              className="bg-brand-muted/20 backdrop-blur-2xl border border-white/5 rounded-[40px] p-12 shadow-2xl"
-            >
-              <div className="w-20 h-20 rounded-3xl bg-brand-accent/10 flex items-center justify-center mb-10 border border-brand-accent/20">
-                <Hash size={32} className="text-brand-accent" />
-              </div>
-              <h3 className="text-2xl font-black text-white mb-4 tracking-tight font-serif">Organized Channels</h3>
-              <p className="text-white/30 font-medium leading-relaxed">
-                Keep your community structured. Create dynamic environments that scale with your needs.
-              </p>
-            </motion.div>
-
-            {/* Feature 3 */}
-            <motion.div 
-              whileHover={{ y: -10 }}
-              transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
-              className="bg-brand-muted/20 backdrop-blur-2xl border border-white/5 rounded-[40px] p-12 shadow-2xl"
-            >
-              <div className="w-20 h-20 rounded-3xl bg-emerald-500/10 flex items-center justify-center mb-10 border border-emerald-500/20">
-                <ShieldCheck size={32} className="text-emerald-500" />
-              </div>
-              <h3 className="text-2xl font-black text-white mb-4 tracking-tight font-serif">Robust Security</h3>
-              <p className="text-white/30 font-medium leading-relaxed">
-                Your data is protected by industry-standard encryption and secure cookie protocols.
-              </p>
-            </motion.div>
+                    <div className="relative z-10">
+                      <div className={`w-16 h-16 rounded-2xl bg-${feature.accent}/10 flex items-center justify-center mb-8 border border-${feature.accent}/20 group-hover:scale-110 transition-transform duration-500`}>
+                        <Icon size={28} className={`text-${feature.accent}`} />
+                      </div>
+                      <h3 className="text-xl md:text-2xl font-black text-white mb-4 tracking-tight font-serif">
+                        {feature.title}
+                      </h3>
+                      <p className="text-white/30 font-medium leading-relaxed text-[15px]">
+                        {feature.description}
+                      </p>
+                    </div>
+                  </div>
+                </RevealSection>
+              );
+            })}
           </div>
         </div>
       </section>
-      
-      {/* Footer */}
-      <footer className="py-20 bg-brand-dark text-white/20 border-t border-white/5 px-8">
-        <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-8">
-          <div className="flex items-center gap-3">
-            <Hash size={24} className="text-brand-accent/40" />
-            <p className="font-black text-2xl text-white font-serif tracking-tight">Ether Chat</p>
+
+      {/* CTA Section */}
+      <section className="relative z-10 py-32 md:py-40 px-4 md:px-8">
+        <RevealSection>
+          <div className="max-w-4xl mx-auto text-center relative">
+            {/* Background glow */}
+            <div className="absolute inset-0 bg-brand-accent/5 rounded-full filter blur-[100px] scale-75" />
+
+            <div className="relative z-10">
+              <h2 className="text-4xl md:text-6xl lg:text-7xl font-black text-white tracking-tight font-serif mb-6 leading-[0.95]">
+                Ready to join the
+                <br />
+                <span className="text-gradient gradient-to-r from-brand-accent to-brand-accent-soft">conversation?</span>
+              </h2>
+              <p className="text-white/25 text-lg md:text-xl max-w-xl mx-auto mb-14 leading-relaxed font-medium">
+                Create your account in seconds and start messaging your team instantly.
+              </p>
+
+              <div className="flex flex-col sm:flex-row items-center justify-center gap-4 sm:gap-5">
+                <Link
+                  to="/register"
+                  className="w-full sm:w-auto px-12 py-5 bg-brand-accent text-white font-black uppercase tracking-[0.15em] text-xs rounded-2xl shadow-2xl shadow-brand-accent/25 hover:shadow-brand-accent/40 hover:scale-[1.03] active:scale-[0.97] transition-all duration-300 flex items-center justify-center gap-3 group"
+                >
+                  <UserPlus size={18} />
+                  Create Free Account
+                  <ArrowRight size={16} className="group-hover:translate-x-1 transition-transform" />
+                </Link>
+                <Link
+                  to="/login"
+                  className="w-full sm:w-auto px-12 py-5 bg-white/4 border border-white/8 text-white/60 font-black uppercase tracking-[0.15em] text-xs rounded-2xl hover:bg-white/8 hover:text-white transition-all duration-300 flex items-center justify-center gap-3"
+                >
+                  <LogIn size={16} />
+                  Sign In
+                </Link>
+              </div>
+            </div>
           </div>
-          <p className="text-xs font-black uppercase tracking-[0.2em]">© 2026 Ether Chat Industries Ltd — All rights reserved</p>
+        </RevealSection>
+      </section>
+
+      {/* Footer */}
+      <footer className="relative z-10 border-t border-white/4 bg-brand-surface/20 px-4 md:px-8">
+        <div className="max-w-7xl mx-auto py-16">
+          <div className="flex flex-col md:flex-row items-center justify-between gap-8">
+            {/* Brand */}
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-lg bg-brand-accent/20 flex items-center justify-center">
+                <Hash size={16} className="text-brand-accent" />
+              </div>
+              <p className="font-black text-xl text-white font-serif tracking-tight">Ether Chat</p>
+            </div>
+
+            {/* Links */}
+            <div className="flex items-center gap-8 text-[10px] font-bold uppercase tracking-[0.2em] text-white/20">
+              <Link to="/about" className="hover:text-white/50 transition-colors duration-300">About</Link>
+              <Link to="/login" className="hover:text-white/50 transition-colors duration-300">Login</Link>
+              <Link to="/register" className="hover:text-white/50 transition-colors duration-300">Register</Link>
+            </div>
+
+            {/* Copyright */}
+            <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-white/15">
+              © 2026 Ether Chat Industries
+            </p>
+          </div>
         </div>
       </footer>
     </div>
