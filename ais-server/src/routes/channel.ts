@@ -5,6 +5,7 @@ import { checkUserAuth } from "../utils.js";
 import { ChannelModel } from "../models/channel-model.js";
 import { MessageModel } from "../models/message-model.js";
 import { UserModel } from "../models/user-model.js";
+import { onlineUsersList } from "../sockets.js";
 
 const channelRouter = new Hono();
 
@@ -239,6 +240,58 @@ channelRouter.post("/:id/add-member", async (c) => {
   return c.json({
     msg: "User added to channel",
   });
+})
+
+channelRouter.get("/:id/members", async (c) => {
+  const token = getCookie(c, "user_auth");
+  const { isValid, user } = await checkUserAuth(token);
+
+  if (!isValid) {
+    c.status(400);
+    return c.json({
+      msg: "Invalid token",
+    });
+  }
+
+  if (!user) {
+    c.status(400);
+    return c.json({
+      msg: "User not found",
+    });
+  }
+
+  const { id } = c.req.param();
+
+  const channel = await ChannelModel.findById(id)
+    .populate("members", "name")
+    .select({
+      members: 1,
+      admin: 1,
+    });
+
+  if (!channel) {
+    c.status(400);
+    return c.json({
+      msg: "Channel not found",
+    });
+  }
+
+  const formattedMembers = channel.members.map((member: any) => ({
+    _id: member._id,
+    name: member.name,
+    status: onlineUsersList.has(member._id.toString()) ? "online" : "offline",
+    role: channel.admin?.toString() === member._id.toString() ? "admin" : "member"
+  }));
+
+  // Sort: online first, then alphabetical
+  formattedMembers.sort((a, b) => {
+    if (a.status !== b.status) {
+      return a.status === "online" ? -1 : 1;
+    }
+    return a.name.localeCompare(b.name);
+  });
+
+  return c.json(formattedMembers);
 })
 
 export default channelRouter;

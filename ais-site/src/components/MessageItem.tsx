@@ -52,7 +52,7 @@ const MessageItem = ({ message, consecutive = false, isCurrentUser = false, isAd
                         <span className="font-black text-[15px] text-white tracking-tight hover:underline cursor-pointer flex items-baseline gap-1.5 min-w-0">
                             <span className="truncate">{message.author?.name || "Unknown User"}</span>
                             {isAdmin && (
-                                <span className="text-amber-400 bg-amber-500/10 p-0.5 rounded flex items-center justify-center -translate-y-[1px]" title="Channel Admin">
+                                <span className="text-amber-400 bg-amber-500/10 p-0.5 rounded flex items-center justify-center -translate-y-px" title="Channel Admin">
                                     <Crown size={12} strokeWidth={2.5} />
                                 </span>
                             )}

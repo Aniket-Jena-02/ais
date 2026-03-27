@@ -5,13 +5,15 @@ import {
     Hash,
     UserPlus,
     ChevronUp,
-    Loader2
+    Loader2,
+    Users
 } from "lucide-react"
 import MessageInput from "./MessageInput"
 import MessageItem, { type Message } from "./MessageItem"
 import { useQuery } from "@tanstack/react-query"
 import { format, isSameDay, isToday, isYesterday, isValid } from "date-fns"
 import AddMemberModal from "./AddMemberModal"
+import MembersPanel from "./MembersPanel"
 import { useDebounceFn } from "ahooks"
 
 interface ProcessedMessage extends Message {
@@ -53,6 +55,7 @@ const ChatArea = () => {
     const [messages, setMessages] = useState<Message[]>([])
     const [isConnecting, setIsConnecting] = useState(true)
     const [isAddMemberOpen, setIsAddMemberOpen] = useState(false)
+    const [isMembersPanelOpen, setIsMembersPanelOpen] = useState(false)
     const [typingUsers, setTypingUsers] = useState<Record<string, string>>({})
     const [olderMessages, setOlderMessages] = useState<Message[]>([])
     const [hasMore, setHasMore] = useState(false)
@@ -97,8 +100,9 @@ const ChatArea = () => {
         setHasMore(false)
     }, [channelId])
 
+    // Effect 1: Create the socket once for the lifetime of the component.
+    // This does NOT depend on channelId so switching channels never disconnects.
     useEffect(() => {
-        // Initialize socket connection using env var
         const socket = io(import.meta.env.VITE_WS_URL || `ws://localhost:3000`, {
             transports: ["websocket"],
         })
@@ -107,11 +111,6 @@ const ChatArea = () => {
         socket.on("connect", () => {
             console.log("Connected to server")
             setIsConnecting(false)
-
-            // Join the specific channel
-            socket.emit("join_channel", { channelId }, (res: any) => {
-                console.log("Joined channel response:", res)
-            })
         })
 
         socket.on("channel_message", (message: Message) => {
@@ -124,8 +123,6 @@ const ChatArea = () => {
                 if (data.isTyping) {
                     newObj[data.user.id] = data.user.name
 
-                    // Auto-clear timeout: remove this user after TYPING_TIMEOUT_MS
-                    // if no refreshing "start typing" event arrives
                     if (typingTimeoutsRef.current[data.user.id]) {
                         clearTimeout(typingTimeoutsRef.current[data.user.id])
                     }
@@ -139,7 +136,6 @@ const ChatArea = () => {
                     }, TYPING_TIMEOUT_MS)
                 } else {
                     delete newObj[data.user.id]
-                    // Clear any pending timeout
                     if (typingTimeoutsRef.current[data.user.id]) {
                         clearTimeout(typingTimeoutsRef.current[data.user.id])
                         delete typingTimeoutsRef.current[data.user.id]
@@ -156,11 +152,37 @@ const ChatArea = () => {
 
         return () => {
             socket.disconnect()
-            setMessages([])
-            setTypingUsers({})
-            // Clear all typing timeouts
             Object.values(typingTimeoutsRef.current).forEach(clearTimeout)
             typingTimeoutsRef.current = {}
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [])
+
+    // Effect 2: Join the new channel room whenever channelId changes.
+    // Leaves the previous room automatically (socket.io leaves on re-join).
+    useEffect(() => {
+        const socket = socketRef.current
+        if (!socket) return
+
+        setMessages([])
+        setTypingUsers({})
+        Object.values(typingTimeoutsRef.current).forEach(clearTimeout)
+        typingTimeoutsRef.current = {}
+
+        if (socket.connected) {
+            socket.emit("join_channel", { channelId }, (res: any) => {
+                console.log("Joined channel response:", res)
+            })
+        } else {
+            // If the socket isn't connected yet, join once it is
+            const onConnect = () => {
+                socket.emit("join_channel", { channelId }, (res: any) => {
+                    console.log("Joined channel response:", res)
+                })
+                socket.off("connect", onConnect)
+            }
+            socket.on("connect", onConnect)
+            return () => { socket.off("connect", onConnect) }
         }
     }, [channelId])
 
@@ -265,131 +287,145 @@ const ChatArea = () => {
     const isLoading = isChannelLoading || isMessagesLoading
 
     return (
-        <div className="flex flex-col h-full bg-brand-dark relative overflow-hidden">
-            {/* Chat Header */}
-            <div className="h-14 flex items-center justify-between px-6 border-b border-white/4 bg-brand-surface/50 backdrop-blur-md sticky top-0 z-20 shrink-0 shadow-sm">
-                <div className="flex items-center gap-3 max-w-full">
-                    <Hash size={20} className="text-white/20 shrink-0" />
-                    <h2 className="text-lg font-black text-white font-serif tracking-tight truncate">
-                        {isLoading ? (
-                            <div className="h-6 w-32 bg-white/5 animate-pulse rounded" />
-                        ) : (
-                            channelData?.channel.name || channelId
-                        )}
-                    </h2>
-                </div>
-
-                {/* Admin Header Actions */}
-                {channelData?.isAdmin && (
-                    <button
-                        onClick={() => setIsAddMemberOpen(true)}
-                        className="p-2 rounded-full text-white/40 hover:text-white hover:bg-white/5 transition-all duration-200"
-                    >
-                        <UserPlus size={18} />
-                    </button>
-                )}
-            </div>
-
-            {/* Messages Scroll Area */}
-            <div className="flex-1 overflow-y-auto px-1 py-6 md:px-8 scrollbar-hide">
-
-                {/* Load Earlier Messages */}
-                {hasMore && !isLoading && (
-                    <div className="flex justify-center mb-6">
-                        <button
-                            onClick={loadOlderMessages}
-                            disabled={isLoadingOlder}
-                            className="flex items-center gap-2 px-4 py-2 text-[10px] font-black uppercase tracking-[0.15em] text-white/30 hover:text-white/60 bg-white/5 hover:bg-white/10 rounded-full border border-white/5 transition-all duration-200 disabled:opacity-50"
-                        >
-                            {isLoadingOlder ? (
-                                <Loader2 size={14} className="animate-spin" />
+        <div className="flex h-full w-full bg-brand-dark relative overflow-hidden">
+            <div className="flex flex-col flex-1 h-full relative overflow-hidden">
+                {/* Chat Header */}
+                <div className="h-14 flex items-center justify-between px-6 border-b border-white/4 bg-brand-surface/50 backdrop-blur-md sticky top-0 z-20 shrink-0 shadow-sm">
+                    <div className="flex items-center gap-3 max-w-full">
+                        <Hash size={20} className="text-white/20 shrink-0" />
+                        <h2 className="text-lg font-black text-white font-serif tracking-tight truncate">
+                            {isLoading ? (
+                                <div className="h-6 w-32 bg-white/5 animate-pulse rounded" />
                             ) : (
-                                <ChevronUp size={14} />
+                                channelData?.channel.name || channelId
                             )}
-                            {isLoadingOlder ? "Loading..." : "Load Earlier Messages"}
+                        </h2>
+                    </div>
+
+                    {/* Admin Header Actions */}
+                    <div className="flex items-center gap-1.5">
+                        <button
+                            onClick={() => setIsMembersPanelOpen(!isMembersPanelOpen)}
+                            className={`p-2 rounded-full transition-all duration-300 ${isMembersPanelOpen ? 'text-brand-accent bg-brand-accent/10 hover:bg-brand-accent/20' : 'text-white/40 hover:text-white hover:bg-white/5'}`}
+                            title="Toggle Member List"
+                        >
+                            <Users size={16} strokeWidth={2.5} />
                         </button>
-                    </div>
-                )}
-
-                {isLoading ? (
-                    <div className="flex flex-col items-center justify-center h-full text-white/10 animate-in fade-in zoom-in duration-1000">
-                        <div className="bg-white/5 p-12 rounded-full mb-8 border border-white/5 shadow-inner">
-                            <Hash size={64} className="opacity-10 animate-pulse" />
-                        </div>
-                        <h3 className="text-2xl font-black tracking-tight text-white/30 uppercase font-serif">Loading Messages</h3>
-                    </div>
-                ) : processedMessages.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center h-full text-white/10 animate-in fade-in zoom-in duration-1000">
-                        <div className="bg-white/5 p-12 rounded-full mb-8 border border-white/5 shadow-inner">
-                            <Hash size={64} className="opacity-10" />
-                        </div>
-                        <h3 className="text-2xl font-black tracking-tight text-white/30 uppercase font-serif">Channel History Starts Here</h3>
-                        <p className="max-w-xs text-center mt-4 text-sm font-medium opacity-40 italic font-sans leading-relaxed">
-                            This is the very beginning of the <strong className="text-white/60">#{channelData?.channel.name}</strong> history. Make it count.
-                        </p>
-                    </div>
-                ) : (
-                    processedMessages.map((msg) => (
-                        <Fragment key={msg._id}>
-                            {msg.showDateSeparator && (
-                                <div className="flex items-center gap-6 my-10 px-4 opacity-40 pointer-events-none select-none">
-                                    <div className="h-px bg-white/5 flex-1"></div>
-                                    <span className="text-[10px] font-black uppercase tracking-[0.2em] text-white/40">
-                                        {msg.dateLabel}
-                                    </span>
-                                    <div className="h-px bg-white/5 flex-1"></div>
-                                </div>
-                            )}
-                            <MessageItem
-                                message={msg}
-                                consecutive={msg.isConsecutive}
-                                isCurrentUser={msg.author?._id === userData?.userId}
-                                isAdmin={msg.author?._id === channelData?.channel?.admin}
-                            />
-                        </Fragment>
-                    ))
-                )}
-                <div ref={messagesEndRef} className="h-8" />
-            </div>
-
-            {/* Input Area */}
-            <div className="relative z-20 shrink-0">
-                {/* Typing Indicator */}
-                {Object.keys(typingUsers).length > 0 && (
-                    <div className="px-8 pb-2 flex items-center gap-2 text-[10px] font-bold uppercase tracking-wider text-white/30 animate-in fade-in slide-in-from-bottom-2 duration-300">
-                        <div className="flex items-center gap-1 opacity-50">
-                            <span className="w-1.5 h-1.5 rounded-full bg-white/40 animate-pulse" />
-                        </div>
-                        <span className="truncate max-w-[200px]">
-                            <span className="text-white/60">{Object.values(typingUsers).join(", ")}</span> {Object.keys(typingUsers).length === 1 ? "is typing..." : "are typing..."}
-                        </span>
-                    </div>
-                )}
-
-                <MessageInput
-                    onSendMessage={handleSendMessage}
-                    placeholder={isConnecting ? "Connecting to server..." : `Message in #${channelData?.channel.name || 'channel'}`}
-                    disabled={isConnecting}
-                    onTyping={handleTyping}
-                />
-
-                {/* Connection Status Overlay */}
-                <div className="absolute top-0 right-12 select-none pointer-events-none -translate-y-1/2 z-30">
-                    <div className="flex items-center gap-2 px-3 py-1 bg-brand-surface rounded-full border border-white/4 shadow-xl">
-                        <div className={`w-2 h-2 rounded-full ${isConnecting ? 'bg-amber-500 animate-pulse' : 'bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.3)]'}`} />
-                        <span className="text-[9px] font-black uppercase tracking-widest text-white/40">
-                            {isConnecting ? 'Connecting' : 'Operational'}
-                        </span>
+                        {channelData?.isAdmin && (
+                            <button
+                                onClick={() => setIsAddMemberOpen(true)}
+                                className="p-2 rounded-full text-white/40 hover:text-white hover:bg-white/5 transition-all duration-300"
+                                title="Add Member"
+                            >
+                                <UserPlus size={16} strokeWidth={2.5} />
+                            </button>
+                        )}
                     </div>
                 </div>
+
+                {/* Messages Scroll Area */}
+                <div className="flex-1 overflow-y-auto px-1 py-6 md:px-8 scrollbar-hide">
+
+                    {/* Load Earlier Messages */}
+                    {hasMore && !isLoading && (
+                        <div className="flex justify-center mb-6">
+                            <button
+                                onClick={loadOlderMessages}
+                                disabled={isLoadingOlder}
+                                className="flex items-center gap-2 px-4 py-2 text-[10px] font-black uppercase tracking-[0.15em] text-white/30 hover:text-white/60 bg-white/5 hover:bg-white/10 rounded-full border border-white/5 transition-all duration-200 disabled:opacity-50"
+                            >
+                                {isLoadingOlder ? (
+                                    <Loader2 size={14} className="animate-spin" />
+                                ) : (
+                                    <ChevronUp size={14} />
+                                )}
+                                {isLoadingOlder ? "Loading..." : "Load Earlier Messages"}
+                            </button>
+                        </div>
+                    )}
+
+                    {isLoading ? (
+                        <div className="flex flex-col items-center justify-center h-full text-white/10 animate-in fade-in zoom-in duration-1000">
+                            <div className="bg-white/5 p-12 rounded-full mb-8 border border-white/5 shadow-inner">
+                                <Hash size={64} className="opacity-10 animate-pulse" />
+                            </div>
+                            <h3 className="text-2xl font-black tracking-tight text-white/30 uppercase font-serif">Loading Messages</h3>
+                        </div>
+                    ) : processedMessages.length === 0 ? (
+                        <div className="flex flex-col items-center justify-center h-full text-white/10 animate-in fade-in zoom-in duration-1000">
+                            <div className="bg-white/2 p-5 rounded-full mb-8 border border-white/5 shadow-inner">
+                                <Hash size={64} className="" />
+                            </div>
+                            <h3 className="text-2xl font-black tracking-tight text-base-content uppercase font-serif">Channel History Starts Here</h3>
+                            <p className="max-w-xs text-center mt-4 text-sm font-medium text-white/40 italic font-sans leading-relaxed">
+                                This is the very beginning of the <strong className="text-brand-accent-soft">#{channelData?.channel.name}</strong> history. Make it count.
+                            </p>
+                        </div>
+                    ) : (
+                        processedMessages.map((msg) => (
+                            <Fragment key={msg._id}>
+                                {msg.showDateSeparator && (
+                                    <div className="flex items-center gap-6 my-10 px-4 opacity-40 pointer-events-none select-none">
+                                        <div className="h-px bg-white/5 flex-1"></div>
+                                        <span className="text-[10px] font-black uppercase tracking-[0.2em] text-white/40">
+                                            {msg.dateLabel}
+                                        </span>
+                                        <div className="h-px bg-white/5 flex-1"></div>
+                                    </div>
+                                )}
+                                <MessageItem
+                                    message={msg}
+                                    consecutive={msg.isConsecutive}
+                                    isCurrentUser={msg.author?._id === userData?.userId}
+                                    isAdmin={msg.author?._id === channelData?.channel?.admin}
+                                />
+                            </Fragment>
+                        ))
+                    )}
+                    <div ref={messagesEndRef} className="h-8" />
+                </div>
+
+                {/* Input Area */}
+                <div className="relative z-20 shrink-0">
+                    {/* Typing Indicator */}
+                    {Object.keys(typingUsers).length > 0 && (
+                        <div className="px-8 pb-2 flex items-center gap-2 text-[10px] font-bold uppercase tracking-wider text-white/30 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                            <div className="flex items-center gap-1 opacity-50">
+                                <span className="w-1.5 h-1.5 rounded-full bg-white/40 animate-pulse" />
+                            </div>
+                            <span className="truncate max-w-[200px]">
+                                <span className="text-white/60">{Object.values(typingUsers).join(", ")}</span> {Object.keys(typingUsers).length === 1 ? "is typing..." : "are typing..."}
+                            </span>
+                        </div>
+                    )}
+
+                    <MessageInput
+                        onSendMessage={handleSendMessage}
+                        placeholder={isConnecting ? "Connecting to server..." : `Message in #${channelData?.channel.name || 'channel'}`}
+                        disabled={isConnecting}
+                        onTyping={handleTyping}
+                    />
+
+                    {/* Connection Status Overlay */}
+                    <div className="absolute top-0 right-12 select-none pointer-events-none -translate-y-1/2 z-30">
+                        <div className="flex items-center gap-2 px-3 py-1 bg-brand-surface rounded-full border border-white/4 shadow-xl">
+                            <div className={`w-2 h-2 rounded-full ${isConnecting ? 'bg-amber-500 animate-pulse' : 'bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.3)]'}`} />
+                            <span className="text-[9px] font-black uppercase tracking-widest text-white/40">
+                                {isConnecting ? 'Connecting' : 'Operational'}
+                            </span>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Add Member Modal */}
+                <AddMemberModal
+                    isOpen={isAddMemberOpen}
+                    onClose={() => setIsAddMemberOpen(false)}
+                    channelId={channelId} />
             </div>
 
-            {/* Add Member Modal */}
-            <AddMemberModal
-                isOpen={isAddMemberOpen}
-                onClose={() => setIsAddMemberOpen(false)}
-                channelId={channelId}
-            />
+            {/* Members Panel — sibling column, right side */}
+            <MembersPanel channelId={channelId} isOpen={isMembersPanelOpen} socket={socketRef.current} />
         </div>
     );
 }
