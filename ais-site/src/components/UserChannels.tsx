@@ -67,6 +67,7 @@ const UserChannels = () => {
           Channels
         </h2>
         <button 
+          aria-label="Create new channel"
           onClick={() => setIsModalOpen(true)}
           className="btn btn-ghost btn-xs btn-circle text-base-content/50 hover:text-base-content hover:bg-base-300 transition-colors"
         >

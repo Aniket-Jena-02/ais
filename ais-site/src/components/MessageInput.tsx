@@ -46,7 +46,7 @@ const MessageInput = ({ onSendMessage, placeholder, disabled, onTyping }: Messag
                         <div className="flex items-end pr-2 py-2">
                             {/* Attach Button */}
                             <div className="pl-2 pb-2">
-                                <button type="button" className="btn btn-ghost btn-circle btn-sm hover:rotate-90 transition-transform">
+                                <button type="button" aria-label="Attach file" className="btn btn-ghost btn-circle btn-sm hover:rotate-90 transition-transform">
                                     <PlusCircle size={22} className="text-base-content/50" />
                                 </button>
                             </div>
@@ -66,10 +66,10 @@ const MessageInput = ({ onSendMessage, placeholder, disabled, onTyping }: Messag
 
                             {/* Action Buttons Right */}
                             <div className="flex items-center gap-1 pb-1">
-                                <button type="button" className="hidden sm:flex btn btn-ghost btn-circle btn-sm">
+                                <button type="button" aria-label="Send gift" className="hidden sm:flex btn btn-ghost btn-circle btn-sm">
                                     <Gift size={20} className="text-base-content/40" />
                                 </button>
-                                <button type="button" className="btn btn-ghost btn-circle btn-sm">
+                                <button type="button" aria-label="Add emoji" className="btn btn-ghost btn-circle btn-sm">
                                     <Smile size={20} className="text-base-content/40" />
                                 </button>
 
@@ -77,6 +77,7 @@ const MessageInput = ({ onSendMessage, placeholder, disabled, onTyping }: Messag
 
                                 <button
                                     type="submit"
+                                    aria-label="Send message"
                                     disabled={!inputValue.trim() || disabled}
                                     className={`btn btn-circle btn-sm transition-all duration-300
                                         ${inputValue.trim() ? 'btn-primary shadow-lg shadow-primary/30 scale-100 rotate-0' : 'btn-ghost opacity-40 scale-90 -rotate-12'}
