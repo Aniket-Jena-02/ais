@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
-import { Hash, Loader2, Plus } from "lucide-react";
+import { Hash, Loader2, Plus, PanelLeftClose, PanelLeftOpen } from "lucide-react";
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import UserProfileFooter from "./UserProfileFooter";
@@ -8,6 +8,7 @@ import CreateChannelModal from "./CreateChannelModal";
 
 const UserChannels = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isCollapsed, setIsCollapsed] = useState(false);
   const {
     data: channels,
     isLoading,
@@ -59,24 +60,47 @@ const UserChannels = () => {
   }
 
   return (
-    <div className="flex flex-col w-64 h-full bg-brand-surface/50 border-r border-white/4 relative z-50">
+    <motion.div 
+      initial={false}
+      animate={{ width: isCollapsed ? 80 : 256 }}
+      transition={{ duration: 0.3, ease: "easeInOut" }}
+      className="flex flex-col h-full bg-brand-surface/50 border-r border-white/4 relative z-50 overflow-hidden shrink-0"
+    >
 
       {/* Header */}
       <motion.div
         initial={{ y: -10, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
         transition={{ duration: 0.4, ease: "easeOut" }}
-        className="h-14 flex items-center justify-between px-6 border-b border-white/4 shrink-0 bg-brand-surface/70 backdrop-blur-md sticky top-0 z-10"
+        className={`h-14 flex items-center ${isCollapsed ? 'justify-center' : 'justify-between'} px-6 border-b border-white/4 shrink-0 bg-brand-surface/70 backdrop-blur-md sticky top-0 z-10`}
       >
-        <h2 className="text-lg font-black text-white font-serif tracking-tight">
-          Channels
-        </h2>
-        <button
-          onClick={() => setIsModalOpen(true)}
-          className="p-1.5 rounded-full text-white/50 hover:text-white hover:bg-white/5 transition-all duration-200 hover:rotate-90 active:scale-90"
-        >
-          <Plus size={18} />
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setIsCollapsed(!isCollapsed)}
+            className="p-1.5 rounded-full text-white/50 hover:text-white hover:bg-white/5 transition-all duration-200 active:scale-90"
+            title={isCollapsed ? "Expand Sidebar" : "Collapse Sidebar"}
+          >
+            {isCollapsed ? <PanelLeftOpen size={18} /> : <PanelLeftClose size={18} />}
+          </button>
+          {!isCollapsed && (
+            <motion.h2 
+              initial={{ opacity: 0, width: 0 }}
+              animate={{ opacity: 1, width: "auto" }}
+              exit={{ opacity: 0, width: 0 }}
+              className="text-lg font-black text-white font-serif tracking-tight truncate"
+            >
+              Channels
+            </motion.h2>
+          )}
+        </div>
+        {!isCollapsed && (
+          <button
+            onClick={() => setIsModalOpen(true)}
+            className="p-1.5 rounded-full text-white/50 hover:text-white hover:bg-white/5 transition-all duration-200 hover:rotate-90 active:scale-90 shrink-0"
+          >
+            <Plus size={18} />
+          </button>
+        )}
       </motion.div>
 
       {/* Channel List */}
@@ -117,13 +141,14 @@ const UserChannels = () => {
                   <Link
                     to="/channels/$channelId"
                     params={{ channelId: channel._id }}
-                    className="group relative flex items-center gap-2.5 px-3 py-2 rounded-md text-[14px] font-medium tracking-tight transition-all duration-200"
+                    className={`group relative flex items-center ${isCollapsed ? 'justify-center' : 'gap-2.5'} px-3 py-2 rounded-md text-[14px] font-medium tracking-tight transition-all duration-200`}
                     activeProps={{
                       className: "bg-white/5 text-white shadow-[0_1px_2px_rgba(0,0,0,0.2)]"
                     }}
                     inactiveProps={{
                       className: "text-white/40 hover:bg-white/[0.02] hover:text-white/70"
                     }}
+                    title={isCollapsed ? channel.name : undefined}
                   >
                     {({ isActive }) => (
                       <>
@@ -135,7 +160,7 @@ const UserChannels = () => {
                           />
                         )}
                         <Hash size={16} className={`shrink-0 transition-colors duration-200 ${isActive ? 'text-brand-accent' : 'text-white/20 group-hover:text-white/40'}`} />
-                        <span className="truncate">{channel.name}</span>
+                        {!isCollapsed && <span className="truncate">{channel.name}</span>}
                       </>
                     )}
                   </Link>
@@ -147,11 +172,11 @@ const UserChannels = () => {
       </div>
 
       {/* Footer (User Profile) */}
-      <UserProfileFooter />
+      <UserProfileFooter isCollapsed={isCollapsed} />
 
       {/* Create Channel Modal */}
       <CreateChannelModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} />
-    </div>
+    </motion.div>
   );
 };
 
