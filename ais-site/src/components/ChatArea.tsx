@@ -35,7 +35,7 @@ const ChatArea = () => {
             const res = await fetch(`${import.meta.env.VITE_API}/channels/${channelId}`, {
                 credentials: "include"
             })
-            return await res.json() as { channel: { _id: string, name: string, createdAt: string }, isAdmin: boolean }
+            return await res.json() as { channel: { _id: string, name: string, createdAt: string, admin: string }, isAdmin: boolean }
         }
     })
 
@@ -343,6 +343,8 @@ const ChatArea = () => {
                             <MessageItem
                                 message={msg}
                                 consecutive={msg.isConsecutive}
+                                isCurrentUser={msg.author?._id === userData?.userId}
+                                isAdmin={msg.author?._id === channelData?.channel?.admin}
                             />
                         </Fragment>
                     ))

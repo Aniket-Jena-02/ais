@@ -1,4 +1,4 @@
-import { MoreHorizontal, Reply, User } from "lucide-react"
+import { MoreHorizontal, Reply, User, Crown } from "lucide-react"
 import { format, isValid } from "date-fns"
 
 export interface Message {
@@ -14,9 +14,11 @@ export interface Message {
 interface MessageItemProps {
     message: Message
     consecutive?: boolean
+    isCurrentUser?: boolean
+    isAdmin?: boolean
 }
 
-const MessageItem = ({ message, consecutive = false }: MessageItemProps) => {
+const MessageItem = ({ message, consecutive = false, isCurrentUser = false, isAdmin = false }: MessageItemProps) => {
     // Generate a consistent color based on the user's name
     const colors = [
         "bg-red-500/10 text-red-400 ring-red-500/20",
@@ -47,8 +49,14 @@ const MessageItem = ({ message, consecutive = false }: MessageItemProps) => {
             <div className="flex-1 min-w-0 flex flex-col justify-start relative">
                 {!consecutive && (
                     <div className="flex items-baseline gap-3 mb-1">
-                        <span className="font-black text-[15px] text-white tracking-tight hover:underline cursor-pointer">
-                            {message.author?.name || "Unknown User"}
+                        <span className="font-black text-[15px] text-white tracking-tight hover:underline cursor-pointer flex items-baseline gap-1.5 min-w-0">
+                            <span className="truncate">{message.author?.name || "Unknown User"}</span>
+                            {isAdmin && (
+                                <span className="text-amber-400 bg-amber-500/10 p-0.5 rounded flex items-center justify-center -translate-y-[1px]" title="Channel Admin">
+                                    <Crown size={12} strokeWidth={2.5} />
+                                </span>
+                            )}
+                            {isCurrentUser && <span className="text-[9px] text-brand-accent/80 font-black uppercase tracking-widest px-1 py-0.5 rounded bg-brand-accent/10 whitespace-nowrap">(you)</span>}
                         </span>
                         {isValid(new Date(message.createdAt)) && (
                             <span className="text-[10px] text-white/20 font-bold uppercase tracking-widest">
