@@ -2,6 +2,7 @@
   "name": "ais-server",
   "type": "module",
   "scripts": {
+    "start": "bun run --bun src/index.ts",
     "dev": "bun run --hot src/index.ts",
     "db_worker": "bun run --hot src/scripts/db_worker.ts"
   },
