@@ -30,6 +30,7 @@ app.route('/channels', channelRouter)
 const { websocket } = engine.handler()
 export default {
   port: Bun.env.PORT || 3000,
+  hostname: "0.0.0.0",
   idleTimeout: 30,
   fetch: (req: Request, server: any) => {
     const url = new URL(req.url)

@@ -27,6 +27,6 @@ ENV PORT=3000
 # Expose the API port
 EXPOSE $PORT
 
-# Run the app
+# Run the app using Bun as the explicit runtime (--bun prevents Node.js fallback)
 USER bun
-ENTRYPOINT [ "bun", "run", "src/index.ts" ]
+ENTRYPOINT [ "bun", "run", "--bun", "src/index.ts" ]
