@@ -9,8 +9,17 @@ import { Redis } from "ioredis";
 
 const frontendUrl = Bun.env.FRONTEND_URL || "http://localhost:5173";
 
-const pubClient = new Redis(Bun.env.REDIS_URI || "redis://localhost:6379");
-const subClient = pubClient.duplicate();
+// Only initialize Redis adapter when REDIS_URI is explicitly set.
+// Cloud Run has no Redis sidecar — eagerly connecting would crash the container.
+let redisAdapter;
+if (Bun.env.REDIS_URI) {
+  const pubClient = new Redis(Bun.env.REDIS_URI);
+  const subClient = pubClient.duplicate();
+  redisAdapter = createAdapter(pubClient, subClient);
+  console.log("Redis adapter enabled for Socket.IO");
+} else {
+  console.log("No REDIS_URI set — running Socket.IO without Redis adapter");
+}
 
 const io = new SocketIOServer({
   cors: {
@@ -18,7 +27,7 @@ const io = new SocketIOServer({
     credentials: true,
     methods: ["GET", "POST"],
   },
-  adapter: createAdapter(pubClient, subClient)
+  ...(redisAdapter && { adapter: redisAdapter }),
 });
 
 const engine = new BunEngine({
