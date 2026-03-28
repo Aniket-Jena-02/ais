@@ -1,0 +1,3 @@
+## 2024-05-14 - Missed ARIA Labels on Icon-Only Action Buttons in Message Inputs
+**Learning:** Found a recurring UX accessibility pattern in this app's components (specifically `MessageInput.tsx`): icon-only action buttons (like attach, emoji, gift, or send) often omit `aria-label` attributes. Screen readers would announce these buttons generically or not at all, severely hindering usability for those relying on assistive technology.
+**Action:** When working on input groups or chat bars with action icons, explicitly review and add appropriate `aria-label` descriptions to all interactive, textless elements to guarantee they are fully accessible to screen readers.
