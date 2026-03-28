@@ -46,7 +46,8 @@ authRouter.post("/register", async (c) => {
     path: "/",
     maxAge: 60 * 60 * 24 * 7, // 1 week
     httpOnly: true,
-    sameSite: "lax",
+    sameSite: Bun.env.ENV === "production" ? "none" : "lax",
+    secure: Bun.env.ENV === "production",
   });
 
   return c.json({
@@ -97,7 +98,8 @@ authRouter.post("/login", async (c) => {
     path: "/",
     maxAge: 60 * 60 * 24 * 7, // 1 week
     httpOnly: true,
-    sameSite: "lax",
+    sameSite: Bun.env.ENV === "production" ? "none" : "lax",
+    secure: Bun.env.ENV === "production",
   });
 
   return c.json({

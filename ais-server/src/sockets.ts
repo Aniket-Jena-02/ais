@@ -42,8 +42,8 @@ io.use(
   ) => {
     const cookieHeader = socket.handshake.headers.cookie;
     if (!cookieHeader) {
-      console.error("No cookies found");
-      return;
+      console.error("[socket] No cookies found on handshake");
+      return next(new Error("UNAUTHORIZED: no cookies"));
     }
 
     // Parse cookies gracefully instead of reckless split chaining
@@ -56,13 +56,14 @@ io.use(
 
     const token = cookies["user_auth"];
     if (!token) {
-      console.error("No auth token found in socket connection");
-      return;
+      console.error("[socket] No auth token found in cookie");
+      return next(new Error("UNAUTHORIZED: missing auth token"));
     }
+
     const { isValid, user } = await checkUserAuth(token);
     if (!isValid || !user) {
-      console.error("Invalid user");
-      return;
+      console.error("[socket] Invalid or expired auth token");
+      return next(new Error("UNAUTHORIZED: invalid token"));
     }
 
     socket.data.user = {
