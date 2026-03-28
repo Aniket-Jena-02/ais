@@ -24,6 +24,10 @@ app.get('/', (c) => {
   return c.text('Hello Hono!')
 })
 
+app.get('/healthz', (c) => {
+  return c.text('ok')
+})
+
 app.route('/auth', authRouter)
 app.route('/channels', channelRouter)
 

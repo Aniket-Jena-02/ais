@@ -103,7 +103,7 @@ const ChatArea = () => {
     // Effect 1: Create the socket once for the lifetime of the component.
     // This does NOT depend on channelId so switching channels never disconnects.
     useEffect(() => {
-        const socket = io(import.meta.env.VITE_WS_URL || `ws://localhost:3000`, {
+        const socket = io(import.meta.env.VITE_WS || `http://localhost:3000`, {
             transports: ["websocket"],
         })
         socketRef.current = socket
