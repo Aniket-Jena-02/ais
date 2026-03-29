@@ -6,6 +6,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
 import { z } from "zod";
 import { motion, AnimatePresence } from "framer-motion";
+import { useNavigate } from "@tanstack/react-router";
 
 import { createPortal } from "react-dom";
 
@@ -24,6 +25,7 @@ interface CreateChannelModalProps {
 
 const CreateChannelModal = ({ isOpen, onClose }: CreateChannelModalProps) => {
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
 
   const {
     register,
@@ -87,10 +89,15 @@ const CreateChannelModal = ({ isOpen, onClose }: CreateChannelModalProps) => {
         queryClient.setQueryData(["user-channels"], context.previousChannels);
       }
     },
-    onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: ["user-channels"] });
+    onSuccess: (data) => {
       toast.success("Channel created successfully!");
       onClose();
+      if (data?.channelId) {
+        navigate({ to: '/channels/$channelId', params: { channelId: data.channelId } });
+      }
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ["user-channels"] });
     },
   });
 

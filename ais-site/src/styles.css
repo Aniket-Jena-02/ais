@@ -23,11 +23,11 @@
   --font-serif: "Fraunces", "serif";
   --font-sans: "Manrope", "sans-serif";
 
-  --color-brand-dark: #0D1117;
-  --color-brand-muted: #161B22;
-  --color-brand-accent: #6E40F2;
-  --color-brand-accent-soft: #8B5CF6;
-  --color-brand-surface: #1C2128;
+  --color-brand-dark: #0A0908;   /* Deep warm black */
+  --color-brand-muted: #1C1917;  /* Warm surface grey */
+  --color-brand-accent: #D44E28; /* Editorial Burnt Vermilion */
+  --color-brand-accent-soft: #F26A45;
+  --color-brand-surface: #141210; /* Subtle warm elevation */
 
   --animate-blob: blob 7s infinite;
   --animate-float: float 6s ease-in-out infinite;

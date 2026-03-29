@@ -1,4 +1,4 @@
-import { useParams } from "@tanstack/react-router"
+import { useParams, useNavigate } from "@tanstack/react-router"
 import { useEffect, useState, useRef, useMemo, useCallback, Fragment } from "react"
 import { io, Socket } from "socket.io-client"
 import {
@@ -6,7 +6,8 @@ import {
     UserPlus,
     ChevronUp,
     Loader2,
-    Users
+    Users,
+    LogOut
 } from "lucide-react"
 import MessageInput from "./MessageInput"
 import MessageItem, { type Message } from "./MessageItem"
@@ -15,6 +16,8 @@ import { format, isSameDay, isToday, isYesterday, isValid } from "date-fns"
 import AddMemberModal from "./AddMemberModal"
 import MembersPanel from "./MembersPanel"
 import { useDebounceFn } from "ahooks"
+import { toast } from "sonner"
+import ConfirmDialog from "./ConfirmDialog"
 
 interface ProcessedMessage extends Message {
     showDateSeparator: boolean
@@ -29,6 +32,7 @@ const ChatArea = () => {
     const { channelId } = useParams({
         from: '/channels/$channelId',
     })
+    const navigate = useNavigate()
 
     // Fetch channel metadata (no longer includes messages)
     const { data: channelData, isLoading: isChannelLoading } = useQuery({
@@ -49,12 +53,14 @@ const ChatArea = () => {
                 credentials: "include"
             })
             return await res.json() as { messages: Message[], hasMore: boolean }
-        }
+        },
+        refetchOnWindowFocus: false,
     })
 
     const [messages, setMessages] = useState<Message[]>([])
     const [isConnecting, setIsConnecting] = useState(true)
     const [isAddMemberOpen, setIsAddMemberOpen] = useState(false)
+    const [isLeaveConfirmOpen, setIsLeaveConfirmOpen] = useState(false)
     const [isMembersPanelOpen, setIsMembersPanelOpen] = useState(false)
     const [typingUsers, setTypingUsers] = useState<Record<string, string>>({})
     const [olderMessages, setOlderMessages] = useState<Message[]>([])
@@ -115,6 +121,16 @@ const ChatArea = () => {
 
         socket.on("channel_message", (message: Message) => {
             setMessages((prev) => [...prev, message])
+        })
+
+        socket.on("message_edited", (data: { messageId: string; content: string; editedAt: string }) => {
+            const applyEdit = (msg: Message) =>
+                msg._id === data.messageId ? { ...msg, content: data.content, editedAt: data.editedAt } : msg
+            setMessages((prev) => prev.map(applyEdit))
+        })
+
+        socket.on("message_deleted", (data: { messageId: string }) => {
+            setMessages((prev) => prev.filter((m) => m._id !== data.messageId))
         })
 
         socket.on("typing", (data: { user: { id: string, name: string }, isTyping: boolean }) => {
@@ -185,6 +201,50 @@ const ChatArea = () => {
             return () => { socket.off("connect", onConnect) }
         }
     }, [channelId])
+
+    const handleEditMessage = async (messageId: string, newContent: string) => {
+        const res = await fetch(`${import.meta.env.VITE_API}/channels/messages/${messageId}`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ content: newContent }),
+            credentials: "include",
+        })
+        if (!res.ok) {
+            toast.error("Failed to edit message")
+            throw new Error("Edit failed")
+        }
+        // Optimistic update for the sender (others get socket event)
+        setMessages((prev) =>
+            prev.map((m) => m._id === messageId ? { ...m, content: newContent } : m)
+        )
+    }
+
+    const handleDeleteMessage = async (messageId: string) => {
+        const res = await fetch(`${import.meta.env.VITE_API}/channels/messages/${messageId}`, {
+            method: "DELETE",
+            credentials: "include",
+        })
+        if (!res.ok) {
+            toast.error("Failed to delete message")
+            throw new Error("Delete failed")
+        }
+        setMessages((prev) => prev.filter((m) => m._id !== messageId))
+    }
+
+    const handleLeaveChannel = async () => {
+        const res = await fetch(`${import.meta.env.VITE_API}/channels/${channelId}/leave`, {
+            method: "POST",
+            credentials: "include",
+        })
+        if (!res.ok) {
+            const data = await res.json()
+            toast.error(data.msg || "Failed to leave channel")
+            return
+        }
+        toast.success("Left channel")
+        navigate({ to: "/channels" })
+    }
+
 
     const handleSendMessage = (content: string) => {
         if (!socketRef.current) return
@@ -302,7 +362,7 @@ const ChatArea = () => {
                         </h2>
                     </div>
 
-                    {/* Admin Header Actions */}
+                    {/* Header Actions */}
                     <div className="flex items-center gap-1.5">
                         <button
                             onClick={() => setIsMembersPanelOpen(!isMembersPanelOpen)}
@@ -318,6 +378,15 @@ const ChatArea = () => {
                                 title="Add Member"
                             >
                                 <UserPlus size={16} strokeWidth={2.5} />
+                            </button>
+                        )}
+                        {!channelData?.isAdmin && channelData && (
+                            <button
+                                onClick={() => setIsLeaveConfirmOpen(true)}
+                                className="p-2 rounded-full text-white/30 hover:text-red-400 hover:bg-red-500/10 transition-all duration-300"
+                                title="Leave Channel"
+                            >
+                                <LogOut size={15} strokeWidth={2.5} />
                             </button>
                         )}
                     </div>
@@ -346,7 +415,7 @@ const ChatArea = () => {
 
                     {isLoading ? (
                         <div className="flex flex-col items-center justify-center h-full text-white/10 animate-in fade-in zoom-in duration-1000">
-                            <div className="bg-white/5 p-12 rounded-full mb-8 border border-white/5 shadow-inner">
+                            <div className="bg-white/2 p-5 rounded-full mb-8 border border-white/5 shadow-inner">
                                 <Hash size={64} className="opacity-10 animate-pulse" />
                             </div>
                             <h3 className="text-2xl font-black tracking-tight text-white/30 uppercase font-serif">Loading Messages</h3>
@@ -354,9 +423,9 @@ const ChatArea = () => {
                     ) : processedMessages.length === 0 ? (
                         <div className="flex flex-col items-center justify-center h-full text-white/10 animate-in fade-in zoom-in duration-1000">
                             <div className="bg-white/2 p-5 rounded-full mb-8 border border-white/5 shadow-inner">
-                                <Hash size={64} className="" />
+                                <Hash size={64} />
                             </div>
-                            <h3 className="text-2xl font-black tracking-tight text-base-content uppercase font-serif">Channel History Starts Here</h3>
+                            <h3 className="text-2xl font-black tracking-tight text-white uppercase font-serif">Channel History Starts Here</h3>
                             <p className="max-w-xs text-center mt-4 text-sm font-medium text-white/40 italic font-sans leading-relaxed">
                                 This is the very beginning of the <strong className="text-brand-accent-soft">#{channelData?.channel.name}</strong> history. Make it count.
                             </p>
@@ -378,6 +447,8 @@ const ChatArea = () => {
                                     consecutive={msg.isConsecutive}
                                     isCurrentUser={msg.author?._id === userData?.userId}
                                     isAdmin={msg.author?._id === channelData?.channel?.admin}
+                                    onEdit={handleEditMessage}
+                                    onDelete={handleDeleteMessage}
                                 />
                             </Fragment>
                         ))
@@ -417,15 +488,35 @@ const ChatArea = () => {
                     </div>
                 </div>
 
+                {/* Leave Confirmation Dialog */}
+                <ConfirmDialog
+                    isOpen={isLeaveConfirmOpen}
+                    title="Leave Channel"
+                    description={`Are you sure you want to leave #${channelData?.channel.name || channelId}? You will need to be re-invited to join again.`}
+                    confirmLabel="Leave Channel"
+                    cancelLabel="Stay"
+                    onConfirm={() => {
+                        setIsLeaveConfirmOpen(false)
+                        handleLeaveChannel()
+                    }}
+                    onCancel={() => setIsLeaveConfirmOpen(false)}
+                />
+
                 {/* Add Member Modal */}
                 <AddMemberModal
                     isOpen={isAddMemberOpen}
                     onClose={() => setIsAddMemberOpen(false)}
-                    channelId={channelId} />
+                    channelId={channelId!} />
             </div>
 
             {/* Members Panel — sibling column, right side */}
-            <MembersPanel channelId={channelId} isOpen={isMembersPanelOpen} socket={socketRef.current} />
+            <MembersPanel
+                channelId={channelId}
+                isOpen={isMembersPanelOpen}
+                socket={socketRef.current}
+                isAdmin={channelData?.isAdmin}
+                currentUserId={userData?.userId}
+            />
         </div>
     );
 }

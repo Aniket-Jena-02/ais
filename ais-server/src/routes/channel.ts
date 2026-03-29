@@ -1,31 +1,18 @@
 import { Hono } from "hono";
-import z, { email } from "zod/v4";
-import { getCookie, setCookie } from "hono/cookie";
-import { checkUserAuth } from "../utils.js";
+import z from "zod/v4";
+import { authMiddleware, type AuthEnv } from "../middleware/auth.js";
 import { ChannelModel } from "../models/channel-model.js";
 import { MessageModel } from "../models/message-model.js";
 import { UserModel } from "../models/user-model.js";
-import { onlineUsersList } from "../sockets.js";
+import { onlineUsersList, io } from "../sockets.js";
 
-const channelRouter = new Hono();
+const channelRouter = new Hono<AuthEnv>();
+
+// Apply auth middleware to all channel routes
+channelRouter.use("*", authMiddleware);
 
 channelRouter.post("/create-channel", async (c) => {
-  const token = getCookie(c, "user_auth");
-  const { isValid, user } = await checkUserAuth(token);
-
-  if (!isValid) {
-    c.status(400);
-    return c.json({
-      msg: "Invalid token",
-    });
-  }
-
-  if (!user) {
-    c.status(400);
-    return c.json({
-      msg: "User not found",
-    });
-  }
+  const user = c.get("user");
 
   const body = await c.req.json();
   const schema = z.object({
@@ -49,26 +36,12 @@ channelRouter.post("/create-channel", async (c) => {
 
   return c.json({
     msg: "Channel created",
+    channelId: channel._id,
   });
 });
 
 channelRouter.get("/user", async (c) => {
-  const token = getCookie(c, "user_auth");
-  const { isValid, user } = await checkUserAuth(token);
-
-  if (!isValid) {
-    c.status(400);
-    return c.json({
-      msg: "Invalid token",
-    });
-  }
-
-  if (!user) {
-    c.status(400);
-    return c.json({
-      msg: "User not found",
-    });
-  }
+  const user = c.get("user");
 
   const channels = await ChannelModel.find({
     members: user.id,
@@ -81,23 +54,6 @@ channelRouter.get("/user", async (c) => {
 });
 
 channelRouter.get("/:id/messages", async (c) => {
-  const token = getCookie(c, "user_auth");
-  const { isValid, user } = await checkUserAuth(token);
-
-  if (!isValid) {
-    c.status(400);
-    return c.json({
-      msg: "Invalid token",
-    });
-  }
-
-  if (!user) {
-    c.status(400);
-    return c.json({
-      msg: "User not found",
-    });
-  }
-
   const { id } = c.req.param();
   const before = c.req.query("before");
   const limit = Math.min(parseInt(c.req.query("limit") || "50", 10), 100);
@@ -126,23 +82,7 @@ channelRouter.get("/:id/messages", async (c) => {
 });
 
 channelRouter.get("/:id", async (c) => {
-  const token = getCookie(c, "user_auth");
-  const { isValid, user } = await checkUserAuth(token);
-
-  if (!isValid) {
-    c.status(400);
-    return c.json({
-      msg: "Invalid token",
-    });
-  }
-
-  if (!user) {
-    c.status(400);
-    return c.json({
-      msg: "User not found",
-    });
-  }
-
+  const user = c.get("user");
   const { id } = c.req.param();
 
   const channel = await ChannelModel.findById(id)
@@ -154,7 +94,7 @@ channelRouter.get("/:id", async (c) => {
     });
 
   if (!channel) {
-    c.status(400);
+    c.status(404);
     return c.json({
       msg: "Channel not found",
     });
@@ -167,36 +107,20 @@ channelRouter.get("/:id", async (c) => {
 });
 
 channelRouter.post("/:id/add-member", async (c) => {
-  const token = getCookie(c, "user_auth");
-  const { isValid, user } = await checkUserAuth(token);
-
-  if (!isValid) {
-    c.status(400);
-    return c.json({
-      msg: "Invalid token",
-    });
-  }
-
-  if (!user) {
-    c.status(400);
-    return c.json({
-      msg: "User not found",
-    });
-  }
-
+  const user = c.get("user");
   const { id } = c.req.param();
 
   const selectedChannel = await ChannelModel.findById(id);
 
   if (!selectedChannel) {
-    c.status(400);
+    c.status(404);
     return c.json({
       msg: "Channel not found",
     });
   }
 
   if (selectedChannel.admin?.toString() !== user.id.toString()) {
-    c.status(400);
+    c.status(403);
     return c.json({
       msg: "User not authorized to add members",
     });
@@ -221,7 +145,7 @@ channelRouter.post("/:id/add-member", async (c) => {
   });
 
   if (!userToAdd) {
-    c.status(400);
+    c.status(404);
     return c.json({
       msg: "User not found",
     });
@@ -240,26 +164,9 @@ channelRouter.post("/:id/add-member", async (c) => {
   return c.json({
     msg: "User added to channel",
   });
-})
+});
 
 channelRouter.get("/:id/members", async (c) => {
-  const token = getCookie(c, "user_auth");
-  const { isValid, user } = await checkUserAuth(token);
-
-  if (!isValid) {
-    c.status(400);
-    return c.json({
-      msg: "Invalid token",
-    });
-  }
-
-  if (!user) {
-    c.status(400);
-    return c.json({
-      msg: "User not found",
-    });
-  }
-
   const { id } = c.req.param();
 
   const channel = await ChannelModel.findById(id)
@@ -270,7 +177,7 @@ channelRouter.get("/:id/members", async (c) => {
     });
 
   if (!channel) {
-    c.status(400);
+    c.status(404);
     return c.json({
       msg: "Channel not found",
     });
@@ -292,6 +199,168 @@ channelRouter.get("/:id/members", async (c) => {
   });
 
   return c.json(formattedMembers);
+});
+
+channelRouter.patch("/messages/:msgId", async (c) => {
+  const user = c.get("user");
+  const { msgId } = c.req.param();
+
+  const message = await MessageModel.findById(msgId);
+
+  if (!message) {
+    c.status(404);
+    return c.json({
+      msg: "Message not found",
+    });
+  }
+
+  if (message.author?.toString() !== user.id.toString()) {
+    c.status(403);
+    return c.json({
+      msg: "User not authorized to edit this message",
+    });
+  }
+
+  const body = await c.req.json();
+  const schema = z.object({
+    content: z.string().min(1).max(1000),
+  });
+
+  const result = schema.safeParse(body);
+
+  if (!result.success) {
+    c.status(400);
+    return c.json({
+      msg: "Malformed input",
+    });
+  }
+
+  message.content = result.data.content;
+  (message as any).editedAt = new Date();
+  await message.save();
+
+  // Broadcast to all channel members in real-time
+  if (message.channelId) {
+    io.to(message.channelId.toString()).emit("message_edited", {
+      messageId: msgId,
+      content: message.content,
+      editedAt: (message as any).editedAt,
+    });
+  }
+
+  return c.json({
+    msg: "Message edited successfully",
+    content: message.content,
+  });
 })
+
+channelRouter.delete("/messages/:msgId", async (c) => {
+  const user = c.get("user");
+  const { msgId } = c.req.param();
+
+  const message = await MessageModel.findById(msgId);
+
+  if (!message) {
+    c.status(404);
+    return c.json({
+      msg: "Message not found",
+    });
+  }
+
+  const channel = await ChannelModel.findById(message.channelId);
+
+  if (!channel) {
+    c.status(404);
+    return c.json({
+      msg: "Channel not found",
+    });
+  }
+
+  const isChannelAdmin = channel.admin?.toString() === user.id.toString();
+
+  if (message.author?.toString() !== user.id.toString() && !isChannelAdmin) {
+    c.status(403);
+    return c.json({
+      msg: "User not authorized to delete this message",
+    });
+  }
+
+  await message.deleteOne();
+
+  // Broadcast deletion to all channel members in real-time
+  if (message.channelId) {
+    io.to(message.channelId.toString()).emit("message_deleted", {
+      messageId: msgId,
+    });
+  }
+
+  return c.json({
+    msg: "Message deleted successfully",
+  });
+});
+
+// Leave channel (non-admin self-leave)
+channelRouter.post("/:id/leave", async (c) => {
+  const user = c.get("user");
+  const { id } = c.req.param();
+
+  const channel = await ChannelModel.findById(id);
+  if (!channel) {
+    c.status(404);
+    return c.json({ msg: "Channel not found" });
+  }
+
+  if (channel.admin?.toString() === user.id.toString()) {
+    c.status(400);
+    return c.json({ msg: "Channel admin cannot leave. Transfer ownership or delete the channel." });
+  }
+
+  const isMember = channel.members.some((m: any) => m.toString() === user.id.toString());
+  if (!isMember) {
+    c.status(400);
+    return c.json({ msg: "You are not a member of this channel" });
+  }
+
+  channel.members = channel.members.filter((m: any) => m.toString() !== user.id.toString()) as any;
+  await channel.save();
+
+  return c.json({ msg: "Left channel successfully" });
+});
+
+// Remove member from channel (admin only)
+channelRouter.delete("/:id/members/:userId", async (c) => {
+  const user = c.get("user");
+  const { id, userId } = c.req.param();
+
+  const channel = await ChannelModel.findById(id);
+  if (!channel) {
+    c.status(404);
+    return c.json({ msg: "Channel not found" });
+  }
+
+  if (channel.admin?.toString() !== user.id.toString()) {
+    c.status(403);
+    return c.json({ msg: "Only the channel admin can remove members" });
+  }
+
+  if (userId === user.id.toString()) {
+    c.status(400);
+    return c.json({ msg: "Admin cannot remove themselves" });
+  }
+
+  const isMember = channel.members.some((m: any) => m.toString() === userId);
+  if (!isMember) {
+    c.status(404);
+    return c.json({ msg: "User is not a member of this channel" });
+  }
+
+  channel.members = channel.members.filter((m: any) => m.toString() !== userId) as any;
+  await channel.save();
+
+  // Notify the kicked user via socket if they're online
+  io.to(id).emit("member_removed", { userId });
+
+  return c.json({ msg: "Member removed successfully" });
+});
 
 export default channelRouter;

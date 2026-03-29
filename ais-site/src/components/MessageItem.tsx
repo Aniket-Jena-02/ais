@@ -1,10 +1,13 @@
-import { MoreHorizontal, Reply, User, Crown } from "lucide-react"
+import { MoreHorizontal, Reply, User, Crown, Pencil, Trash2, Check, X } from "lucide-react"
 import { format, isValid } from "date-fns"
+import { useState, useRef, useEffect } from "react"
+import { motion, AnimatePresence } from "framer-motion"
 
 export interface Message {
     _id: string
     content: string
     createdAt: string
+    editedAt?: string
     author: {
         _id: string
         name: string
@@ -16,9 +19,81 @@ interface MessageItemProps {
     consecutive?: boolean
     isCurrentUser?: boolean
     isAdmin?: boolean
+    onEdit?: (messageId: string, newContent: string) => Promise<void>
+    onDelete?: (messageId: string) => Promise<void>
 }
 
-const MessageItem = ({ message, consecutive = false, isCurrentUser = false, isAdmin = false }: MessageItemProps) => {
+const MessageItem = ({
+    message,
+    consecutive = false,
+    isCurrentUser = false,
+    isAdmin = false,
+    onEdit,
+    onDelete,
+}: MessageItemProps) => {
+    const [isMenuOpen, setIsMenuOpen] = useState(false)
+    const [isEditing, setIsEditing] = useState(false)
+    const [editContent, setEditContent] = useState(message.content)
+    const [isSaving, setIsSaving] = useState(false)
+    const [isDeleting, setIsDeleting] = useState(false)
+    const editInputRef = useRef<HTMLTextAreaElement>(null)
+    const menuRef = useRef<HTMLDivElement>(null)
+
+    // Close menu on outside click
+    useEffect(() => {
+        const handleClick = (e: MouseEvent) => {
+            if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+                setIsMenuOpen(false)
+            }
+        }
+        if (isMenuOpen) document.addEventListener("mousedown", handleClick)
+        return () => document.removeEventListener("mousedown", handleClick)
+    }, [isMenuOpen])
+
+    // Focus edit input when entering edit mode
+    useEffect(() => {
+        if (isEditing && editInputRef.current) {
+            editInputRef.current.focus()
+            editInputRef.current.selectionStart = editInputRef.current.value.length
+        }
+    }, [isEditing])
+
+    const handleEditSubmit = async () => {
+        if (!onEdit || editContent.trim() === message.content || !editContent.trim()) {
+            setIsEditing(false)
+            setEditContent(message.content)
+            return
+        }
+        setIsSaving(true)
+        try {
+            await onEdit(message._id, editContent.trim())
+            setIsEditing(false)
+        } finally {
+            setIsSaving(false)
+        }
+    }
+
+    const handleDeleteConfirm = async () => {
+        if (!onDelete) return
+        setIsDeleting(true)
+        try {
+            await onDelete(message._id)
+        } finally {
+            setIsDeleting(false)
+        }
+    }
+
+    const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+        if (e.key === "Enter" && !e.shiftKey) {
+            e.preventDefault()
+            handleEditSubmit()
+        }
+        if (e.key === "Escape") {
+            setIsEditing(false)
+            setEditContent(message.content)
+        }
+    }
+
     // Generate a consistent color based on the user's name
     const colors = [
         "bg-red-500/10 text-red-400 ring-red-500/20",
@@ -31,6 +106,10 @@ const MessageItem = ({ message, consecutive = false, isCurrentUser = false, isAd
     ]
     const colorIndex = message.author?.name ? message.author.name.length % colors.length : 0
     const colorClass = colors[colorIndex]
+
+    const canEdit = isCurrentUser && !!onEdit
+    const canDelete = (isCurrentUser || isAdmin) && !!onDelete
+    const showActions = canEdit || canDelete
 
     return (
         <div
@@ -61,33 +140,111 @@ const MessageItem = ({ message, consecutive = false, isCurrentUser = false, isAd
                         {isValid(new Date(message.createdAt)) && (
                             <span className="text-[10px] text-white/20 font-bold uppercase tracking-widest">
                                 {format(new Date(message.createdAt), "h:mm a")}
+                                {message.editedAt && (
+                                    <span className="ml-1 text-white/15">(edited)</span>
+                                )}
                             </span>
                         )}
                     </div>
                 )}
 
-                <div className="text-white/70 text-[15px] leading-relaxed font-sans whitespace-pre-wrap">
-                    {message.content}
-                </div>
+                {/* Edit mode */}
+                {isEditing ? (
+                    <div className="flex flex-col gap-2 mt-1">
+                        <textarea
+                            ref={editInputRef}
+                            value={editContent}
+                            onChange={(e) => setEditContent(e.target.value)}
+                            onKeyDown={handleKeyDown}
+                            rows={Math.min(editContent.split("\n").length + 1, 6)}
+                            className="w-full bg-brand-muted/60 border border-brand-accent/30 rounded-lg px-3 py-2 text-white/80 text-[15px] font-sans resize-none focus:outline-none focus:border-brand-accent/60 transition-colors"
+                        />
+                        <div className="flex items-center gap-2">
+                            <button
+                                onClick={handleEditSubmit}
+                                disabled={isSaving}
+                                className="px-3 py-1 rounded-md bg-brand-accent text-white text-[11px] font-black uppercase tracking-wider hover:scale-[1.04] active:scale-95 transition-all flex items-center gap-1 disabled:opacity-50"
+                            >
+                                <Check size={12} />
+                                Save
+                            </button>
+                            <button
+                                onClick={() => { setIsEditing(false); setEditContent(message.content) }}
+                                className="px-3 py-1 rounded-md text-white/40 hover:text-white/70 text-[11px] font-black uppercase tracking-wider transition-colors flex items-center gap-1"
+                            >
+                                <X size={12} />
+                                Cancel
+                            </button>
+                            <span className="text-[10px] text-white/20 ml-1">↵ save · esc cancel</span>
+                        </div>
+                    </div>
+                ) : (
+                    <div className="text-white/70 text-[15px] leading-relaxed font-sans whitespace-pre-wrap">
+                        {message.content}
+                    </div>
+                )}
             </div>
 
             {/* Hover Actions & Timestamp */}
-            <div className="absolute top-2 right-8 opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-10 flex items-center gap-3">
-                {consecutive && isValid(new Date(message.createdAt)) && (
-                    <span className="text-[9px] font-black uppercase tracking-[0.14em] text-white/10 select-none">
-                        {format(new Date(message.createdAt), "h:mm a")}
-                    </span>
-                )}
-                <div className="flex items-center gap-0.5 bg-brand-surface border border-white/4 shadow-2xl rounded-lg p-0.5">
-                    <button className="p-1.5 rounded-md text-white/30 hover:text-white hover:bg-white/5 transition-all" title="Reply">
-                        <Reply size={14} />
-                    </button>
-                    <div className="w-px h-3 bg-white/5 mx-0.5" />
-                    <button className="p-1.5 rounded-md text-white/30 hover:text-white hover:bg-white/5 transition-all" title="More options">
-                        <MoreHorizontal size={14} />
-                    </button>
+            {!isEditing && (
+                <div className="absolute top-2 right-8 opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-10 flex items-center gap-3">
+                    {consecutive && isValid(new Date(message.createdAt)) && (
+                        <span className="text-[9px] font-black uppercase tracking-[0.14em] text-white/10 select-none">
+                            {format(new Date(message.createdAt), "h:mm a")}
+                        </span>
+                    )}
+                    <div className="flex items-center gap-0.5 bg-brand-surface border border-white/4 shadow-2xl rounded-lg p-0.5">
+                        <button className="p-1.5 rounded-md text-white/30 hover:text-white hover:bg-white/5 transition-all" title="Reply">
+                            <Reply size={14} />
+                        </button>
+                        {showActions && (
+                            <>
+                                <div className="w-px h-3 bg-white/5 mx-0.5" />
+                                <div className="relative" ref={menuRef}>
+                                    <button
+                                        onClick={() => setIsMenuOpen((v) => !v)}
+                                        className="p-1.5 rounded-md text-white/30 hover:text-white hover:bg-white/5 transition-all"
+                                        title="More options"
+                                    >
+                                        <MoreHorizontal size={14} />
+                                    </button>
+                                    <AnimatePresence>
+                                        {isMenuOpen && (
+                                            <motion.div
+                                                initial={{ opacity: 0, scale: 0.95, y: -4 }}
+                                                animate={{ opacity: 1, scale: 1, y: 0 }}
+                                                exit={{ opacity: 0, scale: 0.95, y: -4 }}
+                                                transition={{ duration: 0.15 }}
+                                                className="absolute right-0 top-full mt-1 bg-brand-surface border border-white/6 rounded-xl shadow-2xl overflow-hidden z-50 min-w-[130px]"
+                                            >
+                                                {canEdit && (
+                                                    <button
+                                                        onClick={() => { setIsEditing(true); setIsMenuOpen(false) }}
+                                                        className="flex items-center gap-2.5 w-full px-3 py-2.5 text-[12px] font-bold text-white/60 hover:text-white hover:bg-white/5 transition-all"
+                                                    >
+                                                        <Pencil size={13} />
+                                                        Edit Message
+                                                    </button>
+                                                )}
+                                                {canDelete && (
+                                                    <button
+                                                        onClick={() => { handleDeleteConfirm(); setIsMenuOpen(false) }}
+                                                        disabled={isDeleting}
+                                                        className="flex items-center gap-2.5 w-full px-3 py-2.5 text-[12px] font-bold text-red-400/80 hover:text-red-400 hover:bg-red-500/10 transition-all disabled:opacity-50"
+                                                    >
+                                                        <Trash2 size={13} />
+                                                        {isDeleting ? "Deleting…" : "Delete"}
+                                                    </button>
+                                                )}
+                                            </motion.div>
+                                        )}
+                                    </AnimatePresence>
+                                </div>
+                            </>
+                        )}
+                    </div>
                 </div>
-            </div>
+            )}
         </div>
     );
 }

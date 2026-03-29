@@ -1,4 +1,4 @@
-import { createFileRoute, Link, useRouter } from "@tanstack/react-router";
+import { createFileRoute, Link, redirect, useRouter } from "@tanstack/react-router";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import z from "zod/v4";
@@ -15,6 +15,16 @@ type LoginFormData = z.infer<typeof loginSchema>;
 
 export const Route = createFileRoute("/login")({
   component: RouteComponent,
+  beforeLoad: async () => {
+    try {
+      const res = await fetch(`${import.meta.env.VITE_API}/auth/me`, {
+        credentials: "include",
+      });
+      if (res.ok) throw redirect({ to: "/channels" });
+    } catch (e: any) {
+      if (e?.isRedirect) throw e;
+    }
+  },
 });
 
 function RouteComponent() {

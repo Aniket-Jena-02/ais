@@ -1,8 +1,10 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { motion, AnimatePresence } from "framer-motion";
-import { User, Crown, Hash } from "lucide-react";
-import { useEffect } from "react";
+import { User, Crown, Hash, X } from "lucide-react";
+import { useEffect, useState } from "react";
 import type { Socket } from "socket.io-client";
+import { toast } from "sonner";
+import ConfirmDialog from "./ConfirmDialog";
 
 interface Member {
   _id: string;
@@ -15,10 +17,13 @@ interface MembersPanelProps {
   channelId: string;
   isOpen: boolean;
   socket: Socket | null;
+  isAdmin?: boolean;
+  currentUserId?: string;
 }
 
-export default function MembersPanel({ channelId, isOpen, socket }: MembersPanelProps) {
+export default function MembersPanel({ channelId, isOpen, socket, isAdmin = false, currentUserId }: MembersPanelProps) {
   const queryClient = useQueryClient();
+  const [pendingKick, setPendingKick] = useState<{ _id: string; name: string } | null>(null);
 
   const { data: members, isLoading } = useQuery({
     queryKey: ["members", channelId],
@@ -98,7 +103,7 @@ export default function MembersPanel({ channelId, isOpen, socket }: MembersPanel
                     </h4>
                     <div className="space-y-0.5">
                       {onlineMembers.map((member) => (
-                        <MemberItem key={member._id} member={member} />
+                        <MemberItem key={member._id} member={member} isAdmin={isAdmin} currentUserId={currentUserId} onKick={() => setPendingKick(member)} />
                       ))}
                     </div>
                   </div>
@@ -112,7 +117,7 @@ export default function MembersPanel({ channelId, isOpen, socket }: MembersPanel
                     </h4>
                     <div className="space-y-0.5">
                       {offlineMembers.map((member) => (
-                        <MemberItem key={member._id} member={member} />
+                        <MemberItem key={member._id} member={member} isAdmin={isAdmin} currentUserId={currentUserId} onKick={() => setPendingKick(member)} />
                       ))}
                     </div>
                   </div>
@@ -122,12 +127,51 @@ export default function MembersPanel({ channelId, isOpen, socket }: MembersPanel
           </div>
         </motion.div>
       )}
+
+      {/* Kick Confirmation Dialog */}
+      <ConfirmDialog
+        isOpen={!!pendingKick}
+        title="Remove Member"
+        description={`Are you sure you want to remove ${pendingKick?.name ?? "this member"} from the channel? They will need to be re-invited to rejoin.`}
+        confirmLabel="Remove"
+        cancelLabel="Keep"
+        onConfirm={async () => {
+          if (!pendingKick) return;
+          try {
+            const res = await fetch(`${import.meta.env.VITE_API}/channels/${channelId}/members/${pendingKick._id}`, {
+              method: "DELETE",
+              credentials: "include",
+            });
+            if (!res.ok) {
+              const data = await res.json();
+              toast.error(data.msg || "Failed to remove member");
+            } else {
+              queryClient.setQueryData<{ _id: string; name: string; status: string; role: string }[]>(
+                ["members", channelId],
+                (prev) => prev ? prev.filter((m) => m._id !== pendingKick._id) : prev
+              );
+              toast.success(`${pendingKick.name} removed from channel`);
+            }
+          } catch {
+            toast.error("Failed to remove member");
+          } finally {
+            setPendingKick(null);
+          }
+        }}
+        onCancel={() => setPendingKick(null)}
+      />
     </AnimatePresence>
   );
 }
 
-function MemberItem({ member }: { member: Member }) {
+function MemberItem({ member, isAdmin, currentUserId, onKick }: {
+  member: Member;
+  isAdmin: boolean;
+  currentUserId?: string;
+  onKick?: () => void;
+}) {
   const isOnline = member.status === "online";
+  const canKick = isAdmin && member.role !== "admin" && member._id !== currentUserId;
 
   const colors = [
     "bg-red-500/10 text-red-500",
@@ -178,6 +222,15 @@ function MemberItem({ member }: { member: Member }) {
           )}
         </div>
       </div>
+      {canKick && (
+        <button
+          onClick={onKick}
+          className="opacity-0 group-hover:opacity-100 p-1 rounded-md text-white/20 hover:text-red-400 hover:bg-red-500/10 transition-all shrink-0"
+          title={`Remove ${member.name}`}
+        >
+          <X size={13} />
+        </button>
+      )}
     </motion.div>
   );
 }

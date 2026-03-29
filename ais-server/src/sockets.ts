@@ -21,7 +21,7 @@ if (Bun.env.REDIS_URI) {
   console.log("No REDIS_URI set — running Socket.IO without Redis adapter");
 }
 
-const io = new SocketIOServer({
+export const io = new SocketIOServer({
   cors: {
     origin: frontendUrl,
     credentials: true,

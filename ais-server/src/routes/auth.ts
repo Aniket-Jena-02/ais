@@ -131,4 +131,16 @@ authRouter.get("/me", async (c) => {
   });
 });
 
+authRouter.post("/logout", async (c) => {
+  setCookie(c, "user_auth", "", {
+    path: "/",
+    maxAge: 0,
+    httpOnly: true,
+    sameSite: Bun.env.ENV === "production" ? "none" : "lax",
+    secure: Bun.env.ENV === "production",
+  });
+
+  return c.json({ msg: "Logged out successfully" });
+});
+
 export default authRouter;
