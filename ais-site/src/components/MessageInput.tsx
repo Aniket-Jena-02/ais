@@ -1,20 +1,45 @@
-import { useState, type SubmitEvent } from "react"
+import { useState, useRef, useEffect, type SubmitEvent } from "react"
 import {
     Send,
     Smile,
     PlusCircle,
-    Gift
+    Gift,
+    X,
+    Reply
 } from "lucide-react"
+import { motion, AnimatePresence } from "framer-motion"
+import type { Message } from "./MessageItem"
 
 interface MessageInputProps {
     onSendMessage: (content: string) => void;
     placeholder?: string;
     disabled?: boolean;
     onTyping: () => void;
+    replyingTo?: Message | null;
+    onCancelReply?: () => void;
 }
 
-const MessageInput = ({ onSendMessage, placeholder, disabled, onTyping }: MessageInputProps) => {
+const MessageInput = ({ onSendMessage, placeholder, disabled, onTyping, replyingTo, onCancelReply }: MessageInputProps) => {
     const [inputValue, setInputValue] = useState("")
+    const textareaRef = useRef<HTMLTextAreaElement>(null)
+
+    // Auto-focus textarea when reply mode activates
+    useEffect(() => {
+        if (replyingTo && textareaRef.current) {
+            textareaRef.current.focus()
+        }
+    }, [replyingTo])
+
+    // Escape key cancels reply
+    useEffect(() => {
+        const handleEscape = (e: KeyboardEvent) => {
+            if (e.key === "Escape" && replyingTo) {
+                onCancelReply?.()
+            }
+        }
+        document.addEventListener("keydown", handleEscape)
+        return () => document.removeEventListener("keydown", handleEscape)
+    }, [replyingTo, onCancelReply])
 
     const handleSubmit = (e?: SubmitEvent<HTMLFormElement>) => {
         e?.preventDefault()
@@ -35,12 +60,54 @@ const MessageInput = ({ onSendMessage, placeholder, disabled, onTyping }: Messag
         <div className="p-4 md:px-8 md:pb-8 bg-brand-dark">
             <div className="max-w-5xl mx-auto relative">
                 <div className="relative group">
+
+                    {/* ─── Reply Context Bar ─── */}
+                    <AnimatePresence>
+                        {replyingTo && (
+                            <motion.div
+                                initial={{ height: 0, opacity: 0 }}
+                                animate={{ height: "auto", opacity: 1 }}
+                                exit={{ height: 0, opacity: 0 }}
+                                transition={{ duration: 0.15, ease: [0.22, 1, 0.36, 1] }}
+                                className="overflow-hidden"
+                            >
+                                <div className="flex items-center gap-3 px-4 py-2.5 bg-brand-surface/60 backdrop-blur-sm border border-white/[0.04] border-b-0 rounded-t-xl">
+                                    {/* Accent marker */}
+                                    <div className="w-0.5 h-5 rounded-full bg-brand-accent/50 shrink-0" />
+
+                                    <Reply size={12} className="text-brand-accent/50 shrink-0" />
+
+                                    <div className="flex items-center gap-2 flex-1 min-w-0">
+                                        <span className="text-[11px] font-black tracking-tight text-brand-accent/60 shrink-0">
+                                            {replyingTo.author?.name || "Unknown"}
+                                        </span>
+                                        <span className="text-[11px] text-white/20 truncate font-medium min-w-0">
+                                            {replyingTo.content}
+                                        </span>
+                                    </div>
+
+                                    <div className="flex items-center gap-2 shrink-0">
+                                        <span className="text-[9px] text-white/10 font-bold uppercase tracking-wider hidden sm:block">esc</span>
+                                        <button
+                                            onClick={onCancelReply}
+                                            className="p-1 rounded-md text-white/20 hover:text-white/50 hover:bg-white/[0.04] transition-all duration-150"
+                                            title="Cancel reply (Esc)"
+                                        >
+                                            <X size={13} />
+                                        </button>
+                                    </div>
+                                </div>
+                            </motion.div>
+                        )}
+                    </AnimatePresence>
+
                     <form
                         onSubmit={(e) => handleSubmit(e)}
-                        className={`flex flex-col bg-brand-surface/60 backdrop-blur-md rounded-xl border transition-all duration-300
+                        className={`flex flex-col bg-brand-surface/60 backdrop-blur-md border transition-all duration-300
                             ${disabled ? 'opacity-50 pointer-events-none' : ''}
                             focus-within:bg-brand-surface/90 focus-within:border-brand-accent/40 focus-within:shadow-[0_0_20px_rgba(110,64,242,0.05)]
                             border-white/5
+                            ${replyingTo ? 'rounded-b-xl rounded-t-none border-t-0' : 'rounded-xl'}
                         `}
                     >
                         <div className="flex items-end pr-2 py-2">
@@ -56,6 +123,7 @@ const MessageInput = ({ onSendMessage, placeholder, disabled, onTyping }: Messag
 
                             {/* Textarea / Input */}
                             <textarea
+                                ref={textareaRef}
                                 rows={1}
                                 value={inputValue}
                                 onChange={(e) => {
@@ -63,7 +131,9 @@ const MessageInput = ({ onSendMessage, placeholder, disabled, onTyping }: Messag
                                     onTyping()
                                 }}
                                 onKeyDown={handleKeyDown}
-                                placeholder={placeholder || "Type a message..."}
+                                placeholder={replyingTo
+                                    ? `Reply to ${replyingTo.author?.name || "message"}…`
+                                    : placeholder || "Type a message..."}
                                 className="w-full bg-transparent resize-none min-h-[44px] max-h-48 py-3 px-3 text-[15px] leading-relaxed text-white focus:outline-none placeholder:text-white/20 font-medium font-sans"
                             />
 

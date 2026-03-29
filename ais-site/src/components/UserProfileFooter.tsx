@@ -1,6 +1,8 @@
-import { useQuery } from "@tanstack/react-query";
-import { Settings } from "lucide-react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { LogOut } from "lucide-react";
 import { motion } from "framer-motion";
+import { useNavigate } from "@tanstack/react-router";
+import { useState } from "react";
 
 const UserProfileFooter = ({ isCollapsed = false }: { isCollapsed?: boolean }) => {
   const { data, isLoading } = useQuery({
@@ -12,6 +14,23 @@ const UserProfileFooter = ({ isCollapsed = false }: { isCollapsed?: boolean }) =
     },
     queryKey: ["user"]
   })
+
+  const queryClient = useQueryClient()
+  const navigate = useNavigate()
+  const [isLoggingOut, setIsLoggingOut] = useState(false)
+
+  const handleLogout = async () => {
+    setIsLoggingOut(true)
+    try {
+      await fetch(`${import.meta.env.VITE_API}/auth/logout`, {
+        method: "POST",
+        credentials: "include",
+      })
+    } finally {
+      queryClient.clear()
+      navigate({ to: "/login" })
+    }
+  }
 
   // Fallback while loading
   if (isLoading || !data?.userName) {
@@ -40,7 +59,7 @@ const UserProfileFooter = ({ isCollapsed = false }: { isCollapsed?: boolean }) =
           {firstLetter}
         </div>
         {!isCollapsed && (
-          <motion.div 
+          <motion.div
             initial={{ opacity: 0, width: 0 }}
             animate={{ opacity: 1, width: "auto" }}
             exit={{ opacity: 0, width: 0 }}
@@ -52,8 +71,13 @@ const UserProfileFooter = ({ isCollapsed = false }: { isCollapsed?: boolean }) =
         )}
       </div>
       {!isCollapsed && (
-        <button className="p-1.5 rounded-lg text-white/30 hover:text-white hover:bg-white/5 transition-all duration-200 shrink-0 hover:rotate-45">
-          <Settings size={16} />
+        <button
+          onClick={handleLogout}
+          disabled={isLoggingOut}
+          title="Log out"
+          className="p-1.5 rounded-lg text-white/30 hover:text-red-400 hover:bg-red-500/10 transition-all duration-200 shrink-0 disabled:opacity-50"
+        >
+          <LogOut size={16} />
         </button>
       )}
     </motion.div>
@@ -61,3 +85,4 @@ const UserProfileFooter = ({ isCollapsed = false }: { isCollapsed?: boolean }) =
 };
 
 export default UserProfileFooter;
+

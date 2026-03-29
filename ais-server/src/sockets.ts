@@ -116,6 +116,7 @@ io.on("connection", async (socket) => {
     const schema = z.object({
       channelId: z.string(),
       content: z.string().min(1).max(1000),
+      replyTo: z.string().optional(),
     });
     const parsed = schema.safeParse(payload);
     if (!parsed.success) {
@@ -129,8 +130,26 @@ io.on("connection", async (socket) => {
     try {
       const newMsg = await MessageModel.create({
         author: id,
-        ...parsed.data,
+        channelId: parsed.data.channelId,
+        content: parsed.data.content,
+        replyTo: parsed.data.replyTo || null,
       })
+
+      // Populate replyTo for the broadcast
+      let replyToData = null;
+      if (newMsg.replyTo) {
+        const parentMsg = await MessageModel.findById(newMsg.replyTo)
+          .populate("author", "name")
+          .select("content author");
+        if (parentMsg) {
+          replyToData = {
+            _id: parentMsg._id,
+            content: parentMsg.content,
+            author: parentMsg.author,
+          };
+        }
+      }
+
       socket.to(parsed.data.channelId).emit("channel_message", {
         _id: newMsg.id,
         content: newMsg.content,
@@ -139,16 +158,64 @@ io.on("connection", async (socket) => {
           _id: id,
           name,
         },
+        replyTo: replyToData,
       });
       callback({
         status: "SUCCESS",
         messageId: newMsg.id,
+        replyTo: replyToData,
       });
     } catch (err) {
       callback({
         status: "ERROR",
         error: "Failed to sync message to database",
       });
+    }
+  });
+
+  socket.on("react_message", async (payload) => {
+    const schema = z.object({
+      messageId: z.string(),
+      emoji: z.string().min(1).max(10),
+      channelId: z.string(),
+    });
+    const parsed = schema.safeParse(payload);
+    if (!parsed.success) return;
+
+    try {
+      const message = await MessageModel.findById(parsed.data.messageId);
+      if (!message) return;
+
+      const { emoji } = parsed.data;
+      const existingReaction = message.reactions?.find((r: any) => r.emoji === emoji);
+
+      if (existingReaction) {
+        const userIndex = existingReaction.users.findIndex(
+          (u: any) => u.toString() === id.toString()
+        );
+        if (userIndex > -1) {
+          existingReaction.users.splice(userIndex, 1);
+          if (existingReaction.users.length === 0) {
+            message.reactions = message.reactions?.filter(
+              (r: any) => r.emoji !== emoji
+            ) as any;
+          }
+        } else {
+          existingReaction.users.push(id as any);
+        }
+      } else {
+        message.reactions = message.reactions || ([] as any);
+        (message.reactions as any[]).push({ emoji, users: [id] });
+      }
+
+      await message.save();
+
+      io.to(parsed.data.channelId).emit("message_reaction", {
+        messageId: parsed.data.messageId,
+        reactions: message.reactions,
+      });
+    } catch (err) {
+      console.error("react_message error:", err);
     }
   });
 

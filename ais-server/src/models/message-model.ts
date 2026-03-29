@@ -14,7 +14,16 @@ const MessageMongoSchema = new mongoose.Schema({
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Channel',
         index: true
-    }
+    },
+    replyTo: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Message',
+        default: null,
+    },
+    reactions: [{
+        emoji: { type: String, required: true },
+        users: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
+    }],
 
 }, {
     timestamps: true,
@@ -22,4 +31,4 @@ const MessageMongoSchema = new mongoose.Schema({
 
 MessageMongoSchema.index({ channelId: 1, createdAt: -1 })
 
-export const MessageModel = mongoose.model('Message', MessageMongoSchema)
+export const MessageModel = mongoose.model('Message', MessageMongoSchema)

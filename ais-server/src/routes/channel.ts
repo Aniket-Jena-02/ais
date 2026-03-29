@@ -67,10 +67,17 @@ channelRouter.get("/:id/messages", async (c) => {
     .sort({ _id: -1 })
     .limit(limit)
     .populate("author", "name")
+    .populate({
+      path: "replyTo",
+      select: "content author",
+      populate: { path: "author", select: "name" },
+    })
     .select({
       content: 1,
       createdAt: 1,
       updatedAt: 1,
+      reactions: 1,
+      replyTo: 1,
     });
 
   // Return in chronological order
@@ -372,6 +379,69 @@ channelRouter.delete("/:id/members/:userId", async (c) => {
   io.to(id).emit("member_removed", { userId });
 
   return c.json({ msg: "Member removed successfully" });
+});
+
+channelRouter.post("/messages/:msgId/react", async (c) => {
+  const user = c.get("user");
+  const { msgId } = c.req.param();
+
+  const body = await c.req.json();
+  const schema = z.object({
+    emoji: z.string().min(1).max(10),
+  });
+
+  const result = schema.safeParse(body);
+  if (!result.success) {
+    c.status(400);
+    return c.json({ msg: "Malformed input" });
+  }
+
+  const message = await MessageModel.findById(msgId);
+  if (!message) {
+    c.status(404);
+    return c.json({ msg: "Message not found" });
+  }
+
+  const { emoji } = result.data;
+  const existingReaction = message.reactions?.find((r: any) => r.emoji === emoji);
+
+  if (existingReaction) {
+    const userIndex = existingReaction.users.findIndex(
+      (u: any) => u.toString() === user.id.toString()
+    );
+    if (userIndex > -1) {
+      // Remove user's reaction
+      existingReaction.users.splice(userIndex, 1);
+      // Remove the reaction entry entirely if no users left
+      if (existingReaction.users.length === 0) {
+        message.reactions = message.reactions?.filter(
+          (r: any) => r.emoji !== emoji
+        ) as any;
+      }
+    } else {
+      // Add user to existing reaction
+      existingReaction.users.push(user.id as any);
+    }
+  } else {
+    // Create new reaction
+    message.reactions = message.reactions || ([] as any);
+    (message.reactions as any[]).push({ emoji, users: [user.id] });
+  }
+
+  await message.save();
+
+  // Broadcast to channel
+  if (message.channelId) {
+    io.to(message.channelId.toString()).emit("message_reaction", {
+      messageId: msgId,
+      reactions: message.reactions,
+    });
+  }
+
+  return c.json({
+    msg: "Reaction updated",
+    reactions: message.reactions,
+  });
 });
 
 export default channelRouter;

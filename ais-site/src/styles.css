@@ -125,3 +125,14 @@
   pointer-events: none;
   z-index: 1;
 }
+
+/* Scroll-to-message highlight flash */
+@keyframes message-flash {
+  0% { background-color: rgba(212, 78, 40, 0.12); }
+  100% { background-color: transparent; }
+}
+
+.message-highlight {
+  animation: message-flash 1.5s ease-out forwards;
+  border-radius: 0.5rem;
+}

@@ -10,7 +10,7 @@ import {
     LogOut
 } from "lucide-react"
 import MessageInput from "./MessageInput"
-import MessageItem, { type Message } from "./MessageItem"
+import MessageItem, { type Message, type Reaction } from "./MessageItem"
 import { useQuery } from "@tanstack/react-query"
 import { format, isSameDay, isToday, isYesterday, isValid } from "date-fns"
 import AddMemberModal from "./AddMemberModal"
@@ -66,6 +66,7 @@ const ChatArea = () => {
     const [olderMessages, setOlderMessages] = useState<Message[]>([])
     const [hasMore, setHasMore] = useState(false)
     const [isLoadingOlder, setIsLoadingOlder] = useState(false)
+    const [replyingTo, setReplyingTo] = useState<Message | null>(null)
 
     // current user
     const { data: userData } = useQuery({
@@ -90,13 +91,20 @@ const ChatArea = () => {
         }
     }, [messagesData])
 
-    // Auto scroll to bottom when new messages arrive
-    const scrollToBottom = () => {
-        messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
+    // Auto scroll to bottom
+    const isInitialScrollRef = useRef(true)
+    const scrollToBottom = (behavior: ScrollBehavior = "smooth") => {
+        messagesEndRef.current?.scrollIntoView({ behavior })
     }
 
     useEffect(() => {
-        scrollToBottom()
+        if (isInitialScrollRef.current) {
+            // Instant jump on first load / channel switch
+            scrollToBottom("instant")
+            isInitialScrollRef.current = false
+        } else {
+            scrollToBottom("smooth")
+        }
     }, [messages, messagesData?.messages])
 
     // Reset state when channel changes
@@ -104,6 +112,8 @@ const ChatArea = () => {
         setOlderMessages([])
         setMessages([])
         setHasMore(false)
+        setReplyingTo(null)
+        isInitialScrollRef.current = true
     }, [channelId])
 
     // Effect 1: Create the socket once for the lifetime of the component.
@@ -132,6 +142,13 @@ const ChatArea = () => {
 
         socket.on("message_deleted", (data: { messageId: string }) => {
             setMessages((prev) => prev.filter((m) => m._id !== data.messageId))
+        })
+
+        socket.on("message_reaction", (data: { messageId: string; reactions: Reaction[] }) => {
+            const applyReaction = (msg: Message) =>
+                msg._id === data.messageId ? { ...msg, reactions: data.reactions } : msg
+            setMessages((prev) => prev.map(applyReaction))
+            setOlderMessages((prev) => prev.map(applyReaction))
         })
 
         socket.on("typing", (data: { user: { id: string, name: string }, isTyping: boolean }) => {
@@ -236,6 +253,49 @@ const ChatArea = () => {
         setMessages((prev) => prev.filter((m) => m._id !== messageId))
     }
 
+    const handleReaction = (messageId: string, emoji: string) => {
+        if (!socketRef.current) return
+
+        // Optimistic local update
+        const applyOptimistic = (m: Message) => {
+            if (m._id !== messageId) return m
+            const reactions = [...(m.reactions || [])]
+            const existing = reactions.find(r => r.emoji === emoji)
+            const userId = userData?.userId || ""
+            if (existing) {
+                if (existing.users.includes(userId)) {
+                    existing.users = existing.users.filter(u => u !== userId)
+                    if (existing.users.length === 0) {
+                        return { ...m, reactions: reactions.filter(r => r.emoji !== emoji) }
+                    }
+                } else {
+                    existing.users = [...existing.users, userId]
+                }
+                return { ...m, reactions: [...reactions] }
+            } else {
+                return { ...m, reactions: [...reactions, { emoji, users: [userId] }] }
+            }
+        }
+        setMessages(prev => prev.map(applyOptimistic))
+        setOlderMessages(prev => prev.map(applyOptimistic))
+
+        // Fire socket event
+        socketRef.current.emit("react_message", { messageId, emoji, channelId })
+    }
+
+    const handleReply = (message: Message) => {
+        setReplyingTo(message)
+    }
+
+    const scrollToMessage = (messageId: string) => {
+        const el = document.querySelector(`[data-message-id="${messageId}"]`)
+        if (el) {
+            el.scrollIntoView({ behavior: "smooth", block: "center" })
+            el.classList.add("message-highlight")
+            setTimeout(() => el.classList.remove("message-highlight"), 1500)
+        }
+    }
+
     const handleLeaveChannel = async () => {
         const res = await fetch(`${import.meta.env.VITE_API}/channels/${channelId}/leave`, {
             method: "POST",
@@ -254,19 +314,37 @@ const ChatArea = () => {
     const handleSendMessage = (content: string) => {
         if (!socketRef.current) return
 
-        const newMessage = {
+        const newMessage: Record<string, any> = {
             content,
-            channelId
+            channelId,
+        }
+        if (replyingTo) {
+            newMessage.replyTo = replyingTo._id
         }
 
+        const replyData = replyingTo ? {
+            _id: replyingTo._id,
+            content: replyingTo.content,
+            author: replyingTo.author,
+        } : null
+
         // Emit message to server
-        socketRef.current.emit("chat_message", newMessage, (res: { status: string, error?: string, messageId?: string }) => {
+        socketRef.current.emit("chat_message", newMessage, (res: { status: string, error?: string, messageId?: string, replyTo?: any }) => {
             if (res.status === "ERROR") {
                 console.error("Message failed:", res.error)
             } else {
-                setMessages((prev) => [...prev, { ...newMessage, _id: res.messageId!, author: { _id: userData?.userId || "", name: userData?.userName || "" }, createdAt: new Date().toISOString() }])
+                setMessages((prev) => [...prev, {
+                    content,
+                    _id: res.messageId!,
+                    author: { _id: userData?.userId || "", name: userData?.userName || "" },
+                    createdAt: new Date().toISOString(),
+                    replyTo: res.replyTo || replyData,
+                }])
             }
         })
+
+        // Clear reply state
+        setReplyingTo(null)
 
         // Stop typing indicator on send
         cancelStopTyping()
@@ -447,14 +525,20 @@ const ChatArea = () => {
                                         <div className="h-px bg-white/5 flex-1"></div>
                                     </div>
                                 )}
-                                <MessageItem
-                                    message={msg}
-                                    consecutive={msg.isConsecutive}
-                                    isCurrentUser={msg.author?._id === userData?.userId}
-                                    isAdmin={msg.author?._id === channelData?.channel?.admin}
-                                    onEdit={handleEditMessage}
-                                    onDelete={handleDeleteMessage}
-                                />
+                                <div data-message-id={msg._id}>
+                                    <MessageItem
+                                        message={msg}
+                                        consecutive={msg.isConsecutive}
+                                        isCurrentUser={msg.author?._id === userData?.userId}
+                                        isAdmin={msg.author?._id === channelData?.channel?.admin}
+                                        currentUserId={userData?.userId}
+                                        onEdit={handleEditMessage}
+                                        onDelete={handleDeleteMessage}
+                                        onReact={handleReaction}
+                                        onReply={handleReply}
+                                        onScrollToMessage={scrollToMessage}
+                                    />
+                                </div>
                             </Fragment>
                         ))
                     )}
@@ -480,6 +564,8 @@ const ChatArea = () => {
                         placeholder={isConnecting ? "Connecting to server..." : `Message in #${channelData?.channel.name || 'channel'}`}
                         disabled={isConnecting}
                         onTyping={handleTyping}
+                        replyingTo={replyingTo}
+                        onCancelReply={() => setReplyingTo(null)}
                     />
 
                     {/* Connection Status Overlay */}
