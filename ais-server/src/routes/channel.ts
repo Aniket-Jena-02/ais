@@ -70,6 +70,7 @@ channelRouter.get("/:id/messages", async (c) => {
     .select({
       content: 1,
       createdAt: 1,
+      updatedAt: 1,
     });
 
   // Return in chronological order
@@ -221,6 +222,16 @@ channelRouter.patch("/messages/:msgId", async (c) => {
     });
   }
 
+  // Enforce 15-minute edit window
+  const EDIT_WINDOW_MS = 15 * 60 * 1000;
+  const elapsed = Date.now() - new Date(message.createdAt).getTime();
+  if (elapsed > EDIT_WINDOW_MS) {
+    c.status(403);
+    return c.json({
+      msg: "Message can no longer be edited — edit window has expired",
+    });
+  }
+
   const body = await c.req.json();
   const schema = z.object({
     content: z.string().min(1).max(1000),
@@ -236,7 +247,6 @@ channelRouter.patch("/messages/:msgId", async (c) => {
   }
 
   message.content = result.data.content;
-  (message as any).editedAt = new Date();
   await message.save();
 
   // Broadcast to all channel members in real-time
@@ -244,13 +254,14 @@ channelRouter.patch("/messages/:msgId", async (c) => {
     io.to(message.channelId.toString()).emit("message_edited", {
       messageId: msgId,
       content: message.content,
-      editedAt: (message as any).editedAt,
+      updatedAt: message.updatedAt,
     });
   }
 
   return c.json({
     msg: "Message edited successfully",
     content: message.content,
+    updatedAt: message.updatedAt,
   });
 })
 

@@ -7,7 +7,7 @@ export interface Message {
     _id: string
     content: string
     createdAt: string
-    editedAt?: string
+    updatedAt?: string
     author: {
         _id: string
         name: string
@@ -107,7 +107,11 @@ const MessageItem = ({
     const colorIndex = message.author?.name ? message.author.name.length % colors.length : 0
     const colorClass = colors[colorIndex]
 
-    const canEdit = isCurrentUser && !!onEdit
+    const EDIT_WINDOW_MS = 15 * 60 * 1000
+    const isEdited = !!(message.updatedAt && new Date(message.updatedAt).getTime() - new Date(message.createdAt).getTime() > 1000)
+    const isWithinEditWindow = Date.now() - new Date(message.createdAt).getTime() < EDIT_WINDOW_MS
+
+    const canEdit = isCurrentUser && !!onEdit && isWithinEditWindow
     const canDelete = (isCurrentUser || isAdmin) && !!onDelete
     const showActions = canEdit || canDelete
 
@@ -140,9 +144,6 @@ const MessageItem = ({
                         {isValid(new Date(message.createdAt)) && (
                             <span className="text-[10px] text-white/20 font-bold uppercase tracking-widest">
                                 {format(new Date(message.createdAt), "h:mm a")}
-                                {message.editedAt && (
-                                    <span className="ml-1 text-white/15">(edited)</span>
-                                )}
                             </span>
                         )}
                     </div>
@@ -181,6 +182,9 @@ const MessageItem = ({
                 ) : (
                     <div className="text-white/70 text-[15px] leading-relaxed font-sans whitespace-pre-wrap">
                         {message.content}
+                        {isEdited && (
+                            <span className="ml-1.5 text-[10px] text-white/20 font-semibold italic tracking-wide align-baseline">(edited)</span>
+                        )}
                     </div>
                 )}
             </div>

@@ -123,10 +123,11 @@ const ChatArea = () => {
             setMessages((prev) => [...prev, message])
         })
 
-        socket.on("message_edited", (data: { messageId: string; content: string; editedAt: string }) => {
+        socket.on("message_edited", (data: { messageId: string; content: string; updatedAt: string }) => {
             const applyEdit = (msg: Message) =>
-                msg._id === data.messageId ? { ...msg, content: data.content, editedAt: data.editedAt } : msg
+                msg._id === data.messageId ? { ...msg, content: data.content, updatedAt: data.updatedAt } : msg
             setMessages((prev) => prev.map(applyEdit))
+            setOlderMessages((prev) => prev.map(applyEdit))
         })
 
         socket.on("message_deleted", (data: { messageId: string }) => {
@@ -210,13 +211,17 @@ const ChatArea = () => {
             credentials: "include",
         })
         if (!res.ok) {
-            toast.error("Failed to edit message")
+            const data = await res.json()
+            toast.error(data.msg || "Failed to edit message")
             throw new Error("Edit failed")
         }
+        const data = await res.json()
+        const updatedAt = data.updatedAt || new Date().toISOString()
         // Optimistic update for the sender (others get socket event)
-        setMessages((prev) =>
-            prev.map((m) => m._id === messageId ? { ...m, content: newContent } : m)
-        )
+        const applyEdit = (m: Message) =>
+            m._id === messageId ? { ...m, content: newContent, updatedAt } : m
+        setMessages((prev) => prev.map(applyEdit))
+        setOlderMessages((prev) => prev.map(applyEdit))
     }
 
     const handleDeleteMessage = async (messageId: string) => {
