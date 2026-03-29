@@ -115,6 +115,7 @@ const MessageInput = ({ onSendMessage, placeholder, disabled, onTyping, replying
                             <div className="pl-2 pb-2">
                                 <button
                                     type="button"
+                                    aria-label="Attach file"
                                     className="p-2 rounded-full text-white/40 hover:text-white/70 hover:bg-white/5 transition-all duration-200"
                                 >
                                     <PlusCircle size={22} />
@@ -141,12 +142,14 @@ const MessageInput = ({ onSendMessage, placeholder, disabled, onTyping, replying
                             <div className="flex items-center gap-1 pb-1">
                                 <button
                                     type="button"
+                                    aria-label="Send gift"
                                     className="hidden sm:flex p-2 rounded-full text-white/30 hover:text-white/60 hover:bg-white/5 transition-all"
                                 >
                                     <Gift size={20} />
                                 </button>
                                 <button
                                     type="button"
+                                    aria-label="Choose emoji"
                                     className="p-2 rounded-full text-white/30 hover:text-white/60 hover:bg-white/5 transition-all"
                                 >
                                     <Smile size={20} />
@@ -156,6 +159,7 @@ const MessageInput = ({ onSendMessage, placeholder, disabled, onTyping, replying
 
                                 <button
                                     type="submit"
+                                    aria-label="Send message"
                                     disabled={!inputValue.trim() || disabled}
                                     className={`w-9 h-9 rounded-full flex items-center justify-center transition-all duration-300
                                         ${inputValue.trim() ? 'bg-brand-accent text-white shadow-lg shadow-brand-accent/20 translate-y-0 opacity-100' : 'bg-white/5 text-white/20 opacity-40 translate-y-0'}
