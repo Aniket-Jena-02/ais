@@ -92,6 +92,7 @@ const MessageInput = ({ onSendMessage, placeholder, disabled, onTyping, replying
                                             onClick={onCancelReply}
                                             className="p-1 rounded-md text-white/20 hover:text-white/50 hover:bg-white/[0.04] transition-all duration-150"
                                             title="Cancel reply (Esc)"
+                                            aria-label="Cancel reply"
                                         >
                                             <X size={13} />
                                         </button>
@@ -116,6 +117,8 @@ const MessageInput = ({ onSendMessage, placeholder, disabled, onTyping, replying
                                 <button
                                     type="button"
                                     className="p-2 rounded-full text-white/40 hover:text-white/70 hover:bg-white/5 transition-all duration-200"
+                                    title="Attach file"
+                                    aria-label="Attach file"
                                 >
                                     <PlusCircle size={22} />
                                 </button>
@@ -142,12 +145,16 @@ const MessageInput = ({ onSendMessage, placeholder, disabled, onTyping, replying
                                 <button
                                     type="button"
                                     className="hidden sm:flex p-2 rounded-full text-white/30 hover:text-white/60 hover:bg-white/5 transition-all"
+                                    title="Send gift"
+                                    aria-label="Send gift"
                                 >
                                     <Gift size={20} />
                                 </button>
                                 <button
                                     type="button"
                                     className="p-2 rounded-full text-white/30 hover:text-white/60 hover:bg-white/5 transition-all"
+                                    title="Add emoji"
+                                    aria-label="Add emoji"
                                 >
                                     <Smile size={20} />
                                 </button>
@@ -157,6 +164,8 @@ const MessageInput = ({ onSendMessage, placeholder, disabled, onTyping, replying
                                 <button
                                     type="submit"
                                     disabled={!inputValue.trim() || disabled}
+                                    title="Send message"
+                                    aria-label="Send message"
                                     className={`w-9 h-9 rounded-full flex items-center justify-center transition-all duration-300
                                         ${inputValue.trim() ? 'bg-brand-accent text-white shadow-lg shadow-brand-accent/20 translate-y-0 opacity-100' : 'bg-white/5 text-white/20 opacity-40 translate-y-0'}
                                     `}
