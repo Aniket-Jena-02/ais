@@ -5,10 +5,13 @@ import channelRouter from './routes/channel.js'
 import engine from './sockets.js'
 import { cors } from 'hono/cors'
 
-(async () => {
+try {
   await mongoose.connect(Bun.env.MONGO_URI!)
   console.log("MongoDB connected")
-})()
+} catch (error) {
+  console.error("Failed to connect to MongoDB", error)
+  process.exit(1)
+}
 
 
 const app = new Hono()
@@ -25,6 +28,10 @@ app.get('/', (c) => {
 })
 
 app.get('/healthz', (c) => {
+  if (mongoose.connection.readyState !== 1) {
+    c.status(503)
+    return c.text('mongo not ready')
+  }
   return c.text('ok')
 })
 

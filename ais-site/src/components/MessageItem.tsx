@@ -1,7 +1,8 @@
 import { MoreHorizontal, Reply, User, Crown, Pencil, Trash2, Check, X, SmilePlus } from "lucide-react"
 import { format, isValid } from "date-fns"
-import { useState, useRef, useEffect } from "react"
+import { memo, useState, useRef, useEffect } from "react"
 import { motion, AnimatePresence } from "framer-motion"
+import clsx from "clsx"
 
 export interface Reaction {
     emoji: string
@@ -150,7 +151,10 @@ const MessageItem = ({
 
     return (
         <div
-            className={`group relative flex gap-4 px-6 md:px-8 hover:bg-white/[0.015] transition-colors animate-in slide-in-from-bottom-1 duration-300 fill-mode-both ${consecutive ? 'py-0 mt-0' : 'py-1 mt-6'}`}
+            className={clsx(
+                "group relative flex gap-4 px-6 md:px-8 hover:bg-white/1.5 transition-colors animate-in slide-in-from-bottom-1 duration-300 fill-mode-both",
+                consecutive ? "py-[3px] mt-0" : "py-1.5 mt-5"
+            )}
         >
             {/* Left Gutter: Avatar */}
             <div className="shrink-0 w-10 flex flex-col items-center">
@@ -180,8 +184,8 @@ const MessageItem = ({
 
                 {!consecutive && (
                     <div className="flex items-baseline gap-3 mb-1">
-                        <span className="font-black text-[15px] text-white tracking-tight hover:underline cursor-pointer flex items-baseline gap-1.5 min-w-0">
-                            <span className="truncate">{message.author?.name || "Unknown User"}</span>
+                        <span className="font-black text-[15px] text-white tracking-tight cursor-pointer flex items-baseline gap-1.5 min-w-0">
+                            <span className="truncate hover:underline">{message.author?.name || "Unknown User"}</span>
                             {isAdmin && (
                                 <span className="text-amber-400 bg-amber-500/10 p-0.5 rounded flex items-center justify-center -translate-y-px" title="Channel Admin">
                                     <Crown size={12} strokeWidth={2.5} />
@@ -251,15 +255,16 @@ const MessageItem = ({
                                     key={reaction.emoji}
                                     whileTap={{ scale: 0.88 }}
                                     onClick={() => onReact?.(message._id, reaction.emoji)}
-                                    className={`inline-flex items-center gap-1.5 h-7 px-2 rounded-md text-[13px] border transition-all duration-200
-                                        ${hasReacted
-                                            ? 'bg-brand-accent/10 border-brand-accent/25 shadow-[0_0_8px_rgba(212,78,40,0.08)]'
-                                            : 'bg-white/[0.03] border-white/[0.04] hover:bg-white/[0.06] hover:border-white/[0.08]'
-                                        }`}
+                                    className={clsx(
+                                        "inline-flex items-center gap-1.5 h-7 px-2 rounded-md text-[13px] border transition-all duration-200",
+                                        hasReacted
+                                            ? "bg-brand-accent/6 border-white/8 shadow-[0_0_6px_rgba(212,78,40,0.04)]"
+                                            : "bg-white/3 border-white/4 hover:bg-white/6 hover:border-white/8"
+                                    )}
                                     title={`${reaction.users.length} ${reaction.users.length === 1 ? 'reaction' : 'reactions'}`}
                                 >
                                     <span className="leading-none">{reaction.emoji}</span>
-                                    <span className={`text-[11px] font-black tabular-nums ${hasReacted ? 'text-brand-accent/80' : 'text-white/30'}`}>
+                                    <span className={`text-[11px] font-black tabular-nums ${hasReacted ? 'text-brand-accent/60' : 'text-white/30'}`}>
                                         {reaction.users.length}
                                     </span>
                                 </motion.button>
@@ -269,7 +274,7 @@ const MessageItem = ({
                         {/* Inline add-reaction shortcut */}
                         <button
                             onClick={() => setIsEmojiPickerOpen(true)}
-                            className="inline-flex items-center justify-center w-7 h-7 rounded-md border border-dashed border-white/[0.06] text-white/15 hover:text-white/40 hover:border-white/10 hover:bg-white/[0.03] transition-all duration-200"
+                            className="inline-flex items-center justify-center w-7 h-7 rounded-md border border-dashed border-white/5 text-white/12 hover:text-white/30 hover:border-white/8 hover:bg-white/3 transition-all duration-200"
                             title="Add reaction"
                         >
                             <SmilePlus size={13} />
@@ -286,7 +291,7 @@ const MessageItem = ({
                             {format(new Date(message.createdAt), "h:mm a")}
                         </span>
                     )}
-                    <div className="flex items-center gap-0.5 bg-brand-surface/95 backdrop-blur-md border border-white/[0.06] shadow-2xl shadow-black/40 rounded-lg p-0.5">
+                    <div className="flex items-center gap-0.5 bg-brand-surface/95 backdrop-blur-md border border-white/6 shadow-2xl shadow-black/40 rounded-lg p-0.5">
                         {/* Emoji Reaction Trigger */}
                         <div className="relative" ref={emojiRef}>
                             <button
@@ -303,7 +308,7 @@ const MessageItem = ({
                                         animate={{ opacity: 1, scale: 1, y: 0 }}
                                         exit={{ opacity: 0, scale: 0.92, y: 4 }}
                                         transition={{ duration: 0.14, ease: [0.22, 1, 0.36, 1] }}
-                                        className="absolute right-0 bottom-full mb-2 bg-brand-surface/95 backdrop-blur-xl border border-white/[0.06] rounded-xl shadow-2xl shadow-black/50 p-1 flex gap-0.5 z-50"
+                                        className="absolute right-0 bottom-full mb-2 bg-brand-surface/95 backdrop-blur-xl border border-white/6 rounded-xl shadow-2xl shadow-black/50 p-1 flex gap-0.5 z-50"
                                     >
                                         {REACTION_EMOJIS.map((emoji) => (
                                             <motion.button
@@ -314,7 +319,7 @@ const MessageItem = ({
                                                     onReact?.(message._id, emoji)
                                                     setIsEmojiPickerOpen(false)
                                                 }}
-                                                className="w-9 h-9 rounded-lg flex items-center justify-center hover:bg-white/[0.06] transition-colors duration-100 text-[18px] cursor-pointer"
+                                                className="w-9 h-9 rounded-lg flex items-center justify-center hover:bg-white/6 transition-colors duration-100 text-[18px] cursor-pointer"
                                             >
                                                 {emoji}
                                             </motion.button>
@@ -335,11 +340,11 @@ const MessageItem = ({
 
                         {showActions && (
                             <>
-                                <div className="w-px h-4 bg-white/[0.05] mx-0.5" />
+                                <div className="w-px h-4 bg-white/5 mx-0.5" />
                                 <div className="relative" ref={menuRef}>
                                     <button
                                         onClick={() => setIsMenuOpen((v) => !v)}
-                                        className="p-1.5 rounded-md text-white/25 hover:text-white/60 hover:bg-white/[0.05] transition-all duration-150"
+                                        className="p-1.5 rounded-md text-white/25 hover:text-white/60 hover:bg-white/5 transition-all duration-150"
                                         title="More options"
                                     >
                                         <MoreHorizontal size={15} />
@@ -351,12 +356,12 @@ const MessageItem = ({
                                                 animate={{ opacity: 1, scale: 1, y: 0 }}
                                                 exit={{ opacity: 0, scale: 0.95, y: 4 }}
                                                 transition={{ duration: 0.14, ease: [0.22, 1, 0.36, 1] }}
-                                                className="absolute right-0 bottom-full mb-2 bg-brand-surface/95 backdrop-blur-xl border border-white/[0.06] rounded-xl shadow-2xl shadow-black/50 overflow-hidden z-50 min-w-[140px]"
+                                                className="absolute right-0 bottom-full mb-2 bg-brand-surface/95 backdrop-blur-xl border border-white/6 rounded-xl shadow-2xl shadow-black/50 overflow-hidden z-50 min-w-[140px]"
                                             >
                                                 {canEdit && (
                                                     <button
                                                         onClick={() => { setIsEditing(true); setIsMenuOpen(false) }}
-                                                        className="flex items-center gap-2.5 w-full px-3.5 py-2.5 text-[12px] font-bold text-white/50 hover:text-white hover:bg-white/[0.04] transition-all duration-150"
+                                                        className="flex items-center gap-2.5 w-full px-3.5 py-2.5 text-[12px] font-bold text-white/50 hover:text-white hover:bg-white/4 transition-all duration-150"
                                                     >
                                                         <Pencil size={13} />
                                                         Edit Message
@@ -385,4 +390,6 @@ const MessageItem = ({
     );
 }
 
-export default MessageItem
+MessageItem.displayName = "MessageItem"
+
+export default memo(MessageItem)

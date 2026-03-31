@@ -9,6 +9,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useNavigate } from "@tanstack/react-router";
 
 import { createPortal } from "react-dom";
+import { useKeyPress } from "ahooks";
 
 const createChannelSchema = z.object({
   name: z.string()
@@ -31,6 +32,7 @@ const CreateChannelModal = ({ isOpen, onClose }: CreateChannelModalProps) => {
     register,
     handleSubmit,
     reset,
+    watch,
     formState: { errors },
   } = useForm<CreateChannelFormValues>({
     resolver: zodResolver(createChannelSchema),
@@ -38,15 +40,11 @@ const CreateChannelModal = ({ isOpen, onClose }: CreateChannelModalProps) => {
   });
 
   // Escape key listener
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && isOpen) {
-        onClose();
-      }
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, onClose]);
+  useKeyPress("esc", () => {
+    if (isOpen) {
+      onClose();
+    }
+  })
 
   // Reset state when opened
   useEffect(() => {
@@ -105,6 +103,8 @@ const CreateChannelModal = ({ isOpen, onClose }: CreateChannelModalProps) => {
     mutation.mutate(data);
   };
 
+  const channelNamePreview = watch("name").trim().replace(/\s+/g, "-").toLowerCase();
+
   return createPortal(
     <AnimatePresence>
       {isOpen && (
@@ -121,7 +121,7 @@ const CreateChannelModal = ({ isOpen, onClose }: CreateChannelModalProps) => {
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 10 }}
             transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
-            className="bg-brand-surface rounded-2xl shadow-2xl w-full max-w-md border border-white/5 overflow-hidden flex flex-col"
+            className="bg-brand-surface rounded-2xl shadow-2xl w-full max-w-md max-h-[calc(100dvh-2rem)] border border-white/5 ring-1 ring-white/4 overflow-hidden flex flex-col"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header */}
@@ -130,6 +130,9 @@ const CreateChannelModal = ({ isOpen, onClose }: CreateChannelModalProps) => {
                 <Hash size={24} className="text-brand-accent/60" />
                 Create Channel
               </h2>
+              <p className="mt-2 text-sm font-medium leading-relaxed text-white/30">
+                Start a fresh room for a project, team, or quick conversation.
+              </p>
             </div>
 
             {/* Body */}
@@ -150,13 +153,22 @@ const CreateChannelModal = ({ isOpen, onClose }: CreateChannelModalProps) => {
                       autoFocus
                     />
                   </div>
+                  <p className="text-[11px] font-medium text-white/18 ml-1">
+                    Keep it short and easy to scan in the sidebar.
+                  </p>
+                  {channelNamePreview && !errors.name && (
+                    <div className="ml-1 inline-flex items-center gap-2 rounded-full border border-white/6 bg-white/3 px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.16em] text-white/40">
+                      <Hash size={12} className="text-brand-accent/70" />
+                      {channelNamePreview}
+                    </div>
+                  )}
                   {errors.name && (
-                    <p className="text-[11px] text-red-500 font-bold mt-1 ml-1">
+                    <p className="text-[11px] text-red-500 font-bold mt-1 ml-1" aria-live="polite">
                       {errors.name.message}
                     </p>
                   )}
                   {mutation.isError && (
-                    <p className="text-[11px] text-red-500 font-bold mt-1 ml-1">
+                    <p className="text-[11px] text-red-500 font-bold mt-1 ml-1" aria-live="polite">
                       {mutation.error.message}
                     </p>
                   )}

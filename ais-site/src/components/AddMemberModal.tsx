@@ -8,6 +8,7 @@ import { z } from "zod";
 import { motion, AnimatePresence } from "framer-motion";
 
 import { createPortal } from "react-dom";
+import { useKeyPress } from "ahooks";
 
 const addMemberSchema = z.object({
   email: z.string().email("Please enter a valid email address"),
@@ -33,15 +34,11 @@ const AddMemberModal = ({ isOpen, onClose, channelId }: AddMemberModalProps) => 
   });
 
   // Escape key listener
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && isOpen) {
-        onClose();
-      }
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, onClose]);
+  useKeyPress("esc", () => {
+    if (isOpen) {
+      onClose();
+    }
+  })
 
   // Reset state when opened
   useEffect(() => {
@@ -97,7 +94,7 @@ const AddMemberModal = ({ isOpen, onClose, channelId }: AddMemberModalProps) => 
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 10 }}
             transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
-            className="bg-brand-surface rounded-2xl shadow-2xl w-full max-w-md border border-white/5 overflow-hidden flex flex-col"
+            className="bg-brand-surface rounded-2xl shadow-2xl w-full max-w-md max-h-[calc(100dvh-2rem)] border border-white/5 ring-1 ring-white/4 overflow-hidden flex flex-col"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header */}
@@ -106,6 +103,9 @@ const AddMemberModal = ({ isOpen, onClose, channelId }: AddMemberModalProps) => 
                 <UserPlus size={24} className="text-brand-accent/60" />
                 Add Member
               </h2>
+              <p className="mt-2 text-sm font-medium leading-relaxed text-white/30">
+                Invite someone by email and they will appear here as soon as access is granted.
+              </p>
             </div>
 
             {/* Body */}
@@ -126,11 +126,15 @@ const AddMemberModal = ({ isOpen, onClose, channelId }: AddMemberModalProps) => 
                       autoFocus
                     />
                   </div>
+                  <p className="text-[11px] font-medium text-white/18 ml-1">
+                    Use the email tied to their Ether Chat account.
+                  </p>
                   {errors.email && (
                     <motion.p
                       initial={{ opacity: 0, y: -4 }}
                       animate={{ opacity: 1, y: 0 }}
                       className="text-[11px] text-red-500 font-bold mt-1 ml-1"
+                      aria-live="polite"
                     >
                       {errors.email.message}
                     </motion.p>
@@ -140,6 +144,7 @@ const AddMemberModal = ({ isOpen, onClose, channelId }: AddMemberModalProps) => 
                       initial={{ opacity: 0, y: -4 }}
                       animate={{ opacity: 1, y: 0 }}
                       className="text-[11px] text-red-500 font-bold mt-1 ml-1"
+                      aria-live="polite"
                     >
                       {mutation.error?.message || "Failed to add member"}
                     </motion.p>
@@ -149,6 +154,7 @@ const AddMemberModal = ({ isOpen, onClose, channelId }: AddMemberModalProps) => 
                       initial={{ opacity: 0, y: -4 }}
                       animate={{ opacity: 1, y: 0 }}
                       className="text-[11px] text-emerald-500 font-bold mt-1 ml-1"
+                      aria-live="polite"
                     >
                       User added successfully!
                     </motion.p>

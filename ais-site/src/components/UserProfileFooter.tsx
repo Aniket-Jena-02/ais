@@ -54,9 +54,12 @@ const UserProfileFooter = ({ isCollapsed = false }: { isCollapsed?: boolean }) =
       transition={{ duration: 0.4, delay: 0.2, ease: "easeOut" }}
       className={`p-3 border-t border-white/4 bg-brand-surface/30 shrink-0 mt-auto flex items-center ${isCollapsed ? 'justify-center' : 'justify-between'} gap-2`}
     >
-      <div className={`flex items-center gap-2.5 min-w-0 ${isCollapsed ? '' : 'flex-1'} hover:bg-white/5 p-1.5 ${isCollapsed ? '' : '-ml-1.5'} rounded-lg cursor-pointer transition-all duration-200`}>
-        <div className="w-8 h-8 shrink-0 rounded-xl bg-brand-accent flex items-center justify-center shadow-lg shadow-brand-accent/20 text-white font-black text-xs ring-1 ring-inset ring-white/20 rotate-3 group-hover:rotate-0 transition-transform duration-300">
-          {firstLetter}
+      <div className={`group flex items-center gap-2.5 min-w-0 ${isCollapsed ? '' : 'flex-1'} hover:bg-white/5 p-1.5 ${isCollapsed ? '' : '-ml-1.5'} rounded-lg cursor-pointer transition-all duration-200`}>
+        <div className="relative">
+          <div className="w-8 h-8 shrink-0 rounded-xl bg-brand-accent flex items-center justify-center shadow-lg shadow-brand-accent/20 text-white font-black text-xs ring-1 ring-inset ring-white/20 rotate-3 group-hover:rotate-0 transition-transform duration-300">
+            {firstLetter}
+          </div>
+          <span className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border-2 border-brand-surface bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.45)]" />
         </div>
         {!isCollapsed && (
           <motion.div
@@ -66,7 +69,7 @@ const UserProfileFooter = ({ isCollapsed = false }: { isCollapsed?: boolean }) =
             className="flex flex-col min-w-0"
           >
             <span className="text-[13px] font-black tracking-tight truncate text-white leading-tight">{data.userName}</span>
-            <span className="text-[9px] font-bold uppercase tracking-wider text-white/20">Online</span>
+            <span className="text-[9px] font-bold uppercase tracking-wider text-white/20">Signed in</span>
           </motion.div>
         )}
       </div>
@@ -75,6 +78,7 @@ const UserProfileFooter = ({ isCollapsed = false }: { isCollapsed?: boolean }) =
           onClick={handleLogout}
           disabled={isLoggingOut}
           title="Log out"
+          aria-label="Log out"
           className="p-1.5 rounded-lg text-white/30 hover:text-red-400 hover:bg-red-500/10 transition-all duration-200 shrink-0 disabled:opacity-50"
         >
           <LogOut size={16} />

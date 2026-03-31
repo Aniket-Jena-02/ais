@@ -3,6 +3,7 @@ import { createFileRoute, redirect } from "@tanstack/react-router";
 import ChatArea from "#/components/ChatArea";
 
 export const Route = createFileRoute("/channels/$channelId")({
+
   component: RouteComponent,
   beforeLoad: async () => {
     try {

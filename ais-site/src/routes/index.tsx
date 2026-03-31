@@ -13,10 +13,18 @@ import {
   Lock,
   Sparkles,
 } from "lucide-react";
-import { useRef } from "react";
+import { useEffect, useRef } from "react";
 import { useInViewport, useCounter } from "ahooks";
 
 export const Route = createFileRoute("/")({
+  head: () => ({
+    title: "Ether Chat | Home",
+    meta: [
+      { property: "og:title", content: "Ether Chat | Home" },
+      { property: "og:description", content: "Ether Chat" },
+      { property: "og:image", content: "/favicon.png" },
+    ],
+  }),
   component: LandingPage,
   beforeLoad: async () => {
     let isAuthenticated = false;
@@ -33,7 +41,7 @@ export const Route = createFileRoute("/")({
     } catch (e) {
       // ignore fetch errors
     }
-    
+
     if (isAuthenticated) {
       throw redirect({ to: "/channels" });
     }
@@ -46,11 +54,16 @@ function AnimatedStat({ end, suffix = "", label }: { end: number; suffix?: strin
   const [inViewport] = useInViewport(ref);
   const [count, { set }] = useCounter(0, { min: 0, max: end });
 
-  // Animate count when in viewport
-  if (inViewport && count < end) {
+  useEffect(() => {
+    if (!inViewport || count >= end) return;
+
     const step = Math.max(1, Math.floor(end / 60));
-    setTimeout(() => set((prev) => Math.min(prev + step, end)), 16);
-  }
+    const timeout = window.setTimeout(() => {
+      set((prev) => Math.min(prev + step, end));
+    }, 16);
+
+    return () => window.clearTimeout(timeout);
+  }, [count, end, inViewport, set]);
 
   return (
     <div ref={ref} className="text-center">
@@ -98,19 +111,22 @@ function LandingPage() {
       icon: Zap,
       title: "Real-time Messaging",
       description: "WebSocket-powered delivery with sub-100ms latency. Every keystroke, every message — instantly.",
-      accent: "brand-accent",
+      iconWrapClass: "bg-brand-accent/10 border-brand-accent/20",
+      iconClass: "text-brand-accent",
     },
     {
       icon: Hash,
       title: "Organized Channels",
       description: "Structure conversations by topic, team, or project. Scale from 2 people to 200 seamlessly.",
-      accent: "brand-accent",
+      iconWrapClass: "bg-brand-accent/10 border-brand-accent/20",
+      iconClass: "text-brand-accent",
     },
     {
       icon: ShieldCheck,
       title: "Robust Security",
       description: "HTTP-only cookies, bcrypt hashing, and channel-level ACL built right into the core.",
-      accent: "emerald-500",
+      iconWrapClass: "bg-emerald-500/10 border-emerald-500/20",
+      iconClass: "text-emerald-500",
     },
   ];
 
@@ -124,7 +140,7 @@ function LandingPage() {
   ];
 
   return (
-    <div className="min-h-screen bg-brand-dark relative overflow-x-hidden selection:bg-brand-accent/30 font-sans">
+    <div className="min-h-dvh bg-brand-dark relative overflow-x-hidden selection:bg-brand-accent/30 font-sans">
       {/* Background ambient effects */}
       <div className="fixed inset-0 pointer-events-none z-0">
         <div className="absolute top-0 left-1/3 w-[800px] h-[800px] bg-brand-accent/8 rounded-full filter blur-[120px] animate-blob" />
@@ -138,7 +154,7 @@ function LandingPage() {
           initial={{ y: -40, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
           transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1] }}
-          className="max-w-7xl mx-auto bg-brand-dark/60 backdrop-blur-2xl border border-white/6 rounded-2xl px-6 md:px-8 py-4 flex items-center justify-between shadow-2xl shadow-black/20"
+          className="max-w-7xl mx-auto bg-brand-dark/60 backdrop-blur-2xl border border-white/6 ring-1 ring-white/4 rounded-2xl px-6 md:px-8 py-4 flex items-center justify-between shadow-2xl shadow-black/20"
         >
           <Link to="/" className="flex items-center gap-3 group">
             <div className="w-10 h-10 rounded-xl bg-brand-accent flex items-center justify-center shadow-lg shadow-brand-accent/25 rotate-3 group-hover:rotate-6 transition-transform duration-500">
@@ -175,7 +191,7 @@ function LandingPage() {
       </nav>
 
       {/* Hero Section */}
-      <section ref={heroRef} className="relative z-10 min-h-screen flex items-center pt-32 pb-20 px-4 md:px-8">
+      <section ref={heroRef} className="relative z-10 min-h-dvh flex items-center pt-32 pb-20 px-4 md:px-8">
         <motion.div
           className="max-w-7xl mx-auto w-full flex flex-col items-center text-center"
           style={{ opacity: heroOpacity, scale: heroScale, y: heroY }}
@@ -185,11 +201,11 @@ function LandingPage() {
             initial={{ opacity: 0, y: 20, scale: 0.95 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             transition={{ duration: 0.6, delay: 0.2 }}
-            className="inline-flex items-center gap-3 px-5 py-2.5 rounded-full border border-white/8 bg-white/3 text-white/50 text-[10px] font-bold uppercase tracking-[0.2em] mb-12 backdrop-blur-sm"
+            className="inline-flex items-center gap-3 px-5 py-2.5 rounded-full border border-white/8 bg-white/3 text-white/50 text-[10px] font-bold uppercase tracking-[0.2em] mb-12 backdrop-blur-sm ring-1 ring-white/4"
           >
             <span className="relative flex h-2.5 w-2.5">
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-brand-accent opacity-50" />
-              <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-brand-accent shadow-[0_0_8px_rgba(110,64,242,0.5)]" />
+              <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-brand-accent shadow-[0_0_10px_rgba(212,78,40,0.45)]" />
             </span>
             v2.0 Beta is Live
           </motion.div>
@@ -199,11 +215,11 @@ function LandingPage() {
             initial={{ opacity: 0, y: 40 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8, delay: 0.3, ease: [0.22, 1, 0.36, 1] }}
-            className="text-5xl sm:text-7xl md:text-8xl lg:text-[7.5rem] font-black tracking-tight text-white font-serif leading-[0.9] mb-8 max-w-5xl"
+            className="text-5xl sm:text-7xl md:text-8xl lg:text-[7.5rem] font-black tracking-tight text-white font-serif leading-[0.9] mb-8 max-w-5xl text-balance"
           >
             Connect Beyond
             <br />
-            <span className="text-gradient gradient-to-r from-brand-accent via-brand-accent-soft to-brand-accent bg-size-[200%_auto] animate-gradient">
+            <span className="text-gradient bg-linear-to-r from-brand-accent via-brand-accent-soft to-brand-accent bg-size-[200%_auto] animate-gradient">
               Boundaries.
             </span>
           </motion.h1>
@@ -213,7 +229,7 @@ function LandingPage() {
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8, delay: 0.45 }}
-            className="text-lg md:text-xl text-white/25 font-medium max-w-2xl mb-14 leading-relaxed"
+            className="text-lg md:text-xl text-white/25 font-medium max-w-2xl mb-14 leading-relaxed text-balance"
           >
             Lightning-fast communication meets intentional design.
             <br className="hidden md:block" />
@@ -395,7 +411,7 @@ function LandingPage() {
             </div>
             <h2 className="text-4xl md:text-6xl lg:text-7xl font-black text-white tracking-tight font-serif mb-6">
               Engineered for{" "}
-              <span className="text-gradient gradient-to-r from-brand-accent to-brand-accent-soft">Power</span>
+              <span className="text-gradient bg-linear-to-r from-brand-accent to-brand-accent-soft">Power</span>
             </h2>
             <p className="text-white/25 font-medium text-lg md:text-xl max-w-2xl mx-auto leading-relaxed">
               Enterprise performance meets boutique design sensibility.
@@ -409,11 +425,11 @@ function LandingPage() {
                 <RevealSection key={feature.title} delay={index * 150}>
                   <div className="group bg-brand-surface/40 backdrop-blur-xl border border-white/5 rounded-3xl p-10 md:p-12 shadow-xl hover:shadow-2xl hover:border-white/10 hover:-translate-y-2 transition-all duration-500 relative overflow-hidden">
                     {/* Hover glow */}
-                    <div className="absolute inset-0 gradient-to-b from-brand-accent/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+                    <div className="absolute inset-0 bg-linear-to-b from-brand-accent/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
 
                     <div className="relative z-10">
-                      <div className={`w-16 h-16 rounded-2xl bg-${feature.accent}/10 flex items-center justify-center mb-8 border border-${feature.accent}/20 group-hover:scale-110 transition-transform duration-500`}>
-                        <Icon size={28} className={`text-${feature.accent}`} />
+                      <div className={`w-16 h-16 rounded-2xl flex items-center justify-center mb-8 border group-hover:scale-110 transition-transform duration-500 ${feature.iconWrapClass}`}>
+                        <Icon size={28} className={feature.iconClass} />
                       </div>
                       <h3 className="text-xl md:text-2xl font-black text-white mb-4 tracking-tight font-serif">
                         {feature.title}
@@ -441,7 +457,7 @@ function LandingPage() {
               <h2 className="text-4xl md:text-6xl lg:text-7xl font-black text-white tracking-tight font-serif mb-6 leading-[0.95]">
                 Ready to join the
                 <br />
-                <span className="text-gradient gradient-to-r from-brand-accent to-brand-accent-soft">conversation?</span>
+                <span className="text-gradient bg-linear-to-r from-brand-accent to-brand-accent-soft">conversation?</span>
               </h2>
               <p className="text-white/25 text-lg md:text-xl max-w-xl mx-auto mb-14 leading-relaxed font-medium">
                 Create your account in seconds and start messaging your team instantly.

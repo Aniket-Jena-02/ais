@@ -15,6 +15,14 @@ const registerSchema = z.object({
 type RegisterFormData = z.infer<typeof registerSchema>;
 
 export const Route = createFileRoute("/register")({
+  head: () => ({
+    title: "Ether Chat | Register",
+    meta: [
+      { property: "og:title", content: "Ether Chat | Register" },
+      { property: "og:description", content: "Ether Chat" },
+      { property: "og:image", content: "/favicon.png" },
+    ],
+  }),
   component: RegisterComponent,
   beforeLoad: async () => {
     try {
@@ -82,9 +90,18 @@ function RegisterComponent() {
   };
 
   return (
-    <div className="min-h-screen bg-brand-dark flex flex-col items-center justify-center p-6 relative overflow-hidden font-sans">
+    <div className="min-h-dvh bg-brand-dark flex flex-col items-center justify-center p-6 relative overflow-hidden font-sans">
       {/* Background Graphic Effects */}
       <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-brand-accent/5 rounded-full filter blur-[120px] pointer-events-none" />
+      <div className="absolute inset-x-0 top-0 h-32 bg-linear-to-b from-white/3 to-transparent pointer-events-none" />
+
+      <Link
+        to="/"
+        className="absolute left-6 top-6 z-20 inline-flex items-center gap-3 rounded-full border border-white/8 bg-brand-surface/50 px-4 py-2 text-[11px] font-black uppercase tracking-[0.16em] text-white/55 backdrop-blur-xl transition-all duration-300 hover:border-white/12 hover:text-white"
+      >
+        <Hash size={14} className="text-brand-accent" />
+        Ether Chat
+      </Link>
 
       {/* Register Card */}
       <motion.div
@@ -93,7 +110,7 @@ function RegisterComponent() {
         initial="hidden"
         animate="visible"
       >
-        <div className="bg-brand-surface/60 backdrop-blur-3xl rounded-[40px] shadow-2xl border border-white/6 p-10 sm:p-14 overflow-hidden relative">
+        <div className="bg-brand-surface/60 backdrop-blur-3xl rounded-[40px] shadow-2xl border border-white/6 ring-1 ring-white/4 p-10 sm:p-14 overflow-hidden relative">
 
           {/* Subtle top light effect */}
           <div className="absolute top-0 inset-x-0 h-px bg-linear-to-r from-transparent via-white/10 to-transparent" />
@@ -102,7 +119,7 @@ function RegisterComponent() {
             <div className="w-16 h-16 rounded-[22px] bg-brand-accent flex items-center justify-center shadow-2xl shadow-brand-accent/20 mb-8 rotate-3 hover:rotate-6 transition-transform duration-500">
               <Hash size={32} className="text-white" />
             </div>
-            <h2 className="text-4xl font-black text-white tracking-tight font-serif">
+            <h2 className="text-4xl font-black text-white tracking-tight font-serif text-center text-balance">
               Create Account
             </h2>
             <p className="text-white/20 mt-3 font-medium text-sm tracking-wide uppercase">
@@ -121,6 +138,7 @@ function RegisterComponent() {
                   type="text"
                   className="bg-transparent text-white font-medium w-full focus:outline-none placeholder:text-white/10"
                   placeholder="Your name"
+                  autoComplete="name"
                   {...register("name")}
                 />
               </div>
@@ -141,6 +159,9 @@ function RegisterComponent() {
                   type="email"
                   className="bg-transparent text-white font-medium w-full focus:outline-none placeholder:text-white/10"
                   placeholder="name@example.com"
+                  autoComplete="email"
+                  autoCapitalize="none"
+                  spellCheck={false}
                   {...register("email")}
                 />
               </div>
@@ -161,6 +182,7 @@ function RegisterComponent() {
                   type="password"
                   className="bg-transparent text-white font-medium w-full focus:outline-none placeholder:text-white/10"
                   placeholder="••••••••"
+                  autoComplete="new-password"
                   {...register("password")}
                 />
               </div>
@@ -193,6 +215,7 @@ function RegisterComponent() {
                 initial={{ opacity: 0, scale: 0.95 }}
                 animate={{ opacity: 1, scale: 1 }}
                 className="text-center mt-6"
+                aria-live="polite"
               >
                 <p className="text-[11px] text-red-500 font-black uppercase tracking-wider bg-red-500/10 py-3 px-6 rounded-xl inline-block border border-red-500/20">
                   {serverError}
@@ -200,6 +223,10 @@ function RegisterComponent() {
               </motion.div>
             )}
           </form>
+
+          <motion.p variants={itemVariants} className="mt-8 text-center text-[10px] font-bold uppercase tracking-[0.18em] text-white/18">
+            Setup takes a minute and gets you straight into channels
+          </motion.p>
         </div>
 
         {/* Helper Footer */}

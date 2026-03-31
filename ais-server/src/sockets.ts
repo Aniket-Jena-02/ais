@@ -9,6 +9,11 @@ import { Redis } from "ioredis";
 
 const frontendUrl = Bun.env.FRONTEND_URL || "http://localhost:5173";
 
+interface AppSocketData {
+  user: { name: string; id: string };
+  joinedChannels: Set<string>;
+}
+
 // Only initialize Redis adapter when REDIS_URI is explicitly set.
 // Cloud Run has no Redis sidecar — eagerly connecting would crash the container.
 let redisAdapter;
@@ -37,7 +42,7 @@ io.bind(engine);
 
 io.use(
   async (
-    socket: Socket<any, any, any, { user: { name: string; id: string } }>,
+    socket: Socket<any, any, any, AppSocketData>,
     next,
   ) => {
     const cookieHeader = socket.handshake.headers.cookie;
@@ -70,6 +75,7 @@ io.use(
       id: user.id,
       name: user.name ?? "",
     };
+    socket.data.joinedChannels = new Set<string>();
     next();
   },
 );
@@ -104,7 +110,36 @@ io.on("connection", async (socket) => {
   });
 
   socket.on("join_channel", async (payload, callback) => {
-    socket.join(payload.channelId);
+    const schema = z.object({
+      channelId: z.string(),
+    });
+    const parsed = schema.safeParse(payload);
+    if (!parsed.success) {
+      if (typeof callback === "function") {
+        callback({
+          status: "ERROR",
+          error: "Invalid channel",
+        });
+      }
+      return;
+    }
+
+    const isMember = await ChannelModel.exists({
+      _id: parsed.data.channelId,
+      members: id,
+    });
+    if (!isMember) {
+      if (typeof callback === "function") {
+        callback({
+          status: "ERROR",
+          error: "UNAUTHORIZED",
+        });
+      }
+      return;
+    }
+
+    socket.join(parsed.data.channelId);
+    socket.data.joinedChannels.add(parsed.data.channelId);
     if (typeof callback === "function") {
       callback({
         status: "SUCCESS",
@@ -182,22 +217,38 @@ io.on("connection", async (socket) => {
     const parsed = schema.safeParse(payload);
     if (!parsed.success) return;
 
+    const { messageId, emoji, channelId } = parsed.data;
+
     try {
-      const message = await MessageModel.findById(parsed.data.messageId);
+      const isMember = await ChannelModel.exists({
+        _id: channelId,
+        members: id,
+      });
+      if (!isMember) return;
+
+      if (!socket.data.joinedChannels.has(channelId)) {
+        socket.join(channelId);
+        socket.data.joinedChannels.add(channelId);
+      }
+
+      const message = await MessageModel.findOne({
+        _id: messageId,
+        channelId,
+      }).select("reactions");
       if (!message) return;
 
-      const { emoji } = parsed.data;
-      const existingReaction = message.reactions?.find((r: any) => r.emoji === emoji);
+      const existingReaction = message.reactions?.find((reaction: any) => reaction.emoji === emoji);
 
       if (existingReaction) {
         const userIndex = existingReaction.users.findIndex(
-          (u: any) => u.toString() === id.toString()
+          (user: any) => user.toString() === id.toString()
         );
+
         if (userIndex > -1) {
           existingReaction.users.splice(userIndex, 1);
           if (existingReaction.users.length === 0) {
             message.reactions = message.reactions?.filter(
-              (r: any) => r.emoji !== emoji
+              (reaction: any) => reaction.emoji !== emoji
             ) as any;
           }
         } else {
@@ -210,9 +261,10 @@ io.on("connection", async (socket) => {
 
       await message.save();
 
-      io.to(parsed.data.channelId).emit("message_reaction", {
-        messageId: parsed.data.messageId,
-        reactions: message.reactions,
+      // Broadcast canonical state to the whole room so optimistic clients reconcile.
+      io.to(channelId).emit("message_reaction", {
+        messageId,
+        reactions: message.reactions || [],
       });
     } catch (err) {
       console.error("react_message error:", err);

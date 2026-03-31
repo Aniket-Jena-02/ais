@@ -18,15 +18,16 @@ import MembersPanel from "./MembersPanel"
 import { useDebounceFn } from "ahooks"
 import { toast } from "sonner"
 import ConfirmDialog from "./ConfirmDialog"
+import clsx from "clsx"
 
-interface ProcessedMessage extends Message {
+interface ProcessedMessage {
+    message: Message
     showDateSeparator: boolean
     dateLabel: string
     isConsecutive: boolean
 }
 
 const MESSAGES_PER_PAGE = 50
-const TYPING_TIMEOUT_MS = 4000
 
 const ChatArea = () => {
     const { channelId } = useParams({
@@ -57,6 +58,7 @@ const ChatArea = () => {
         refetchOnWindowFocus: false,
     })
 
+    const [initialMessages, setInitialMessages] = useState<Message[]>([])
     const [messages, setMessages] = useState<Message[]>([])
     const [isConnecting, setIsConnecting] = useState(true)
     const [isAddMemberOpen, setIsAddMemberOpen] = useState(false)
@@ -79,37 +81,60 @@ const ChatArea = () => {
         queryKey: ["user"]
     })
 
-    // Using useRef for persistent socket across re-renders
     const socketRef = useRef<Socket | null>(null)
     const messagesEndRef = useRef<HTMLDivElement>(null)
-    const typingTimeoutsRef = useRef<Record<string, ReturnType<typeof setTimeout>>>({})
+
+    const updateMessageEverywhere = useCallback((updater: (message: Message) => Message) => {
+        setOlderMessages((prev) => prev.map(updater))
+        setInitialMessages((prev) => prev.map(updater))
+        setMessages((prev) => prev.map(updater))
+    }, [])
+
+    const removeMessageEverywhere = useCallback((messageId: string) => {
+        setOlderMessages((prev) => prev.filter((message) => message._id !== messageId))
+        setInitialMessages((prev) => prev.filter((message) => message._id !== messageId))
+        setMessages((prev) => prev.filter((message) => message._id !== messageId))
+    }, [])
 
     // Track hasMore from initial query
     useEffect(() => {
         if (messagesData) {
             setHasMore(messagesData.hasMore)
+            setInitialMessages(messagesData.messages)
         }
     }, [messagesData])
 
     // Auto scroll to bottom
     const isInitialScrollRef = useRef(true)
-    const scrollToBottom = (behavior: ScrollBehavior = "smooth") => {
+    const scrollToBottom = (behavior: ScrollBehavior) => {
         messagesEndRef.current?.scrollIntoView({ behavior })
     }
 
+    const latestMessageId = useMemo(() => {
+        const latestMessages = messages.length > 0 ? messages : initialMessages
+        return latestMessages.length > 0 ? latestMessages[latestMessages.length - 1]._id : null
+    }, [initialMessages, messages])
+
     useEffect(() => {
+        const hasMessages = initialMessages.length + messages.length > 0
         if (isInitialScrollRef.current) {
-            // Instant jump on first load / channel switch
-            scrollToBottom("instant")
-            isInitialScrollRef.current = false
+            if (!hasMessages) return // wait until data actually arrives
+            // Double-RAF ensures the browser has painted the messages before we scroll
+            requestAnimationFrame(() => {
+                requestAnimationFrame(() => {
+                    scrollToBottom("instant")
+                    isInitialScrollRef.current = false
+                })
+            })
         } else {
             scrollToBottom("smooth")
         }
-    }, [messages, messagesData?.messages])
+    }, [initialMessages.length, latestMessageId, messages.length])
 
     // Reset state when channel changes
     useEffect(() => {
         setOlderMessages([])
+        setInitialMessages([])
         setMessages([])
         setHasMore(false)
         setReplyingTo(null)
@@ -136,19 +161,17 @@ const ChatArea = () => {
         socket.on("message_edited", (data: { messageId: string; content: string; updatedAt: string }) => {
             const applyEdit = (msg: Message) =>
                 msg._id === data.messageId ? { ...msg, content: data.content, updatedAt: data.updatedAt } : msg
-            setMessages((prev) => prev.map(applyEdit))
-            setOlderMessages((prev) => prev.map(applyEdit))
+            updateMessageEverywhere(applyEdit)
         })
 
         socket.on("message_deleted", (data: { messageId: string }) => {
-            setMessages((prev) => prev.filter((m) => m._id !== data.messageId))
+            removeMessageEverywhere(data.messageId)
         })
 
         socket.on("message_reaction", (data: { messageId: string; reactions: Reaction[] }) => {
             const applyReaction = (msg: Message) =>
                 msg._id === data.messageId ? { ...msg, reactions: data.reactions } : msg
-            setMessages((prev) => prev.map(applyReaction))
-            setOlderMessages((prev) => prev.map(applyReaction))
+            updateMessageEverywhere(applyReaction)
         })
 
         socket.on("typing", (data: { user: { id: string, name: string }, isTyping: boolean }) => {
@@ -156,27 +179,21 @@ const ChatArea = () => {
                 const newObj = { ...prev }
                 if (data.isTyping) {
                     newObj[data.user.id] = data.user.name
-
-                    if (typingTimeoutsRef.current[data.user.id]) {
-                        clearTimeout(typingTimeoutsRef.current[data.user.id])
-                    }
-                    typingTimeoutsRef.current[data.user.id] = setTimeout(() => {
-                        setTypingUsers((prev) => {
-                            const updated = { ...prev }
-                            delete updated[data.user.id]
-                            return updated
-                        })
-                        delete typingTimeoutsRef.current[data.user.id]
-                    }, TYPING_TIMEOUT_MS)
                 } else {
                     delete newObj[data.user.id]
-                    if (typingTimeoutsRef.current[data.user.id]) {
-                        clearTimeout(typingTimeoutsRef.current[data.user.id])
-                        delete typingTimeoutsRef.current[data.user.id]
-                    }
                 }
                 return newObj
             })
+        })
+
+        socket.on("user_presence", (data: { userId: string, status: "online" | "offline" }) => {
+            if (data.status === "offline") {
+                setTypingUsers((prev) => {
+                    const newObj = { ...prev }
+                    delete newObj[data.userId]
+                    return newObj
+                })
+            }
         })
 
         socket.on("disconnect", () => {
@@ -186,11 +203,9 @@ const ChatArea = () => {
 
         return () => {
             socket.disconnect()
-            Object.values(typingTimeoutsRef.current).forEach(clearTimeout)
-            typingTimeoutsRef.current = {}
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [])
+    }, [removeMessageEverywhere, updateMessageEverywhere])
 
     // Effect 2: Join the new channel room whenever channelId changes.
     // Leaves the previous room automatically (socket.io leaves on re-join).
@@ -200,8 +215,6 @@ const ChatArea = () => {
 
         setMessages([])
         setTypingUsers({})
-        Object.values(typingTimeoutsRef.current).forEach(clearTimeout)
-        typingTimeoutsRef.current = {}
 
         if (socket.connected) {
             socket.emit("join_channel", { channelId }, (res: any) => {
@@ -220,7 +233,9 @@ const ChatArea = () => {
         }
     }, [channelId])
 
-    const handleEditMessage = async (messageId: string, newContent: string) => {
+
+
+    const handleEditMessage = useCallback(async (messageId: string, newContent: string) => {
         const res = await fetch(`${import.meta.env.VITE_API}/channels/messages/${messageId}`, {
             method: "PATCH",
             headers: { "Content-Type": "application/json" },
@@ -237,11 +252,10 @@ const ChatArea = () => {
         // Optimistic update for the sender (others get socket event)
         const applyEdit = (m: Message) =>
             m._id === messageId ? { ...m, content: newContent, updatedAt } : m
-        setMessages((prev) => prev.map(applyEdit))
-        setOlderMessages((prev) => prev.map(applyEdit))
-    }
+        updateMessageEverywhere(applyEdit)
+    }, [updateMessageEverywhere])
 
-    const handleDeleteMessage = async (messageId: string) => {
+    const handleDeleteMessage = useCallback(async (messageId: string) => {
         const res = await fetch(`${import.meta.env.VITE_API}/channels/messages/${messageId}`, {
             method: "DELETE",
             credentials: "include",
@@ -250,51 +264,55 @@ const ChatArea = () => {
             toast.error("Failed to delete message")
             throw new Error("Delete failed")
         }
-        setMessages((prev) => prev.filter((m) => m._id !== messageId))
-    }
+        removeMessageEverywhere(messageId)
+    }, [removeMessageEverywhere])
 
-    const handleReaction = (messageId: string, emoji: string) => {
+    const handleReaction = useCallback((messageId: string, emoji: string) => {
         if (!socketRef.current) return
 
         // Optimistic local update
         const applyOptimistic = (m: Message) => {
             if (m._id !== messageId) return m
-            const reactions = [...(m.reactions || [])]
-            const existing = reactions.find(r => r.emoji === emoji)
+            const reactions = (m.reactions || []).map((reaction) => ({
+                ...reaction,
+                users: [...reaction.users],
+            }))
+            const existingIndex = reactions.findIndex((reaction) => reaction.emoji === emoji)
             const userId = userData?.userId || ""
-            if (existing) {
+            if (existingIndex >= 0) {
+                const existing = reactions[existingIndex]
                 if (existing.users.includes(userId)) {
                     existing.users = existing.users.filter(u => u !== userId)
                     if (existing.users.length === 0) {
-                        return { ...m, reactions: reactions.filter(r => r.emoji !== emoji) }
+                        return { ...m, reactions: reactions.filter((_, index) => index !== existingIndex) }
                     }
                 } else {
                     existing.users = [...existing.users, userId]
                 }
-                return { ...m, reactions: [...reactions] }
+                reactions[existingIndex] = existing
+                return { ...m, reactions }
             } else {
                 return { ...m, reactions: [...reactions, { emoji, users: [userId] }] }
             }
         }
-        setMessages(prev => prev.map(applyOptimistic))
-        setOlderMessages(prev => prev.map(applyOptimistic))
+        updateMessageEverywhere(applyOptimistic)
 
         // Fire socket event
         socketRef.current.emit("react_message", { messageId, emoji, channelId })
-    }
+    }, [channelId, updateMessageEverywhere, userData?.userId])
 
-    const handleReply = (message: Message) => {
+    const handleReply = useCallback((message: Message) => {
         setReplyingTo(message)
-    }
+    }, [])
 
-    const scrollToMessage = (messageId: string) => {
+    const scrollToMessage = useCallback((messageId: string) => {
         const el = document.querySelector(`[data-message-id="${messageId}"]`)
         if (el) {
             el.scrollIntoView({ behavior: "smooth", block: "center" })
             el.classList.add("message-highlight")
             setTimeout(() => el.classList.remove("message-highlight"), 1500)
         }
-    }
+    }, [])
 
     const handleLeaveChannel = async () => {
         const res = await fetch(`${import.meta.env.VITE_API}/channels/${channelId}/leave`, {
@@ -376,7 +394,7 @@ const ChatArea = () => {
 
     // Load older messages (cursor-based pagination)
     const loadOlderMessages = useCallback(async () => {
-        const allCurrent = [...olderMessages, ...(messagesData?.messages || []), ...messages]
+        const allCurrent = [...olderMessages, ...initialMessages, ...messages]
         if (allCurrent.length === 0 || !hasMore) return
 
         setIsLoadingOlder(true)
@@ -394,11 +412,11 @@ const ChatArea = () => {
         } finally {
             setIsLoadingOlder(false)
         }
-    }, [channelId, olderMessages, messagesData?.messages, messages, hasMore])
+    }, [channelId, hasMore, initialMessages, messages, olderMessages])
 
     // Combine all messages and pre-process date separators / consecutive flags
     const processedMessages = useMemo(() => {
-        const allMessages = [...olderMessages, ...(messagesData?.messages || []), ...messages]
+        const allMessages = [...olderMessages, ...initialMessages, ...messages]
 
         return allMessages.map((msg, index): ProcessedMessage => {
             const messageDate = new Date(msg.createdAt)
@@ -419,46 +437,65 @@ const ChatArea = () => {
             }
 
             return {
-                ...msg,
+                message: msg,
                 showDateSeparator,
                 dateLabel,
                 isConsecutive,
             }
         })
-    }, [olderMessages, messagesData?.messages, messages])
+    }, [initialMessages, messages, olderMessages])
 
     const isLoading = isChannelLoading || isMessagesLoading
 
     return (
-        <div className="flex h-full w-full bg-brand-dark relative overflow-hidden">
-            <div className="flex flex-col flex-1 h-full relative overflow-hidden">
+        <div className="relative flex h-full w-full min-w-0 overflow-hidden bg-brand-dark">
+            <div className="relative flex h-full min-w-0 flex-1 flex-col overflow-hidden">
                 {/* Chat Header */}
-                <div className="h-14 flex items-center justify-between px-6 border-b border-white/4 bg-brand-surface/50 backdrop-blur-md sticky top-0 z-20 shrink-0 shadow-sm">
-                    <div className="flex items-center gap-3 max-w-full">
-                        <Hash size={20} className="text-white/20 shrink-0" />
-                        <h2 className="text-lg font-black text-white font-serif tracking-tight truncate">
-                            {isLoading ? (
-                                <div className="h-6 w-32 bg-white/5 animate-pulse rounded" />
-                            ) : (
-                                channelData?.channel.name || channelId
-                            )}
-                        </h2>
+                <div className="sticky top-0 z-20 flex h-16 shrink-0 items-center justify-between border-b border-white/4 bg-brand-surface/55 px-4 shadow-sm backdrop-blur-xl md:px-6">
+                    <div className="flex min-w-0 items-center gap-3">
+                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-white/6 bg-white/4">
+                            <Hash size={18} className="text-white/25" />
+                        </div>
+                        <div className="min-w-0 flex items-center gap-2">
+                            <h2 className="truncate text-lg font-black tracking-tight text-white font-serif">
+                                {isLoading ? (
+                                    <div className="h-6 w-32 animate-pulse rounded bg-white/5" />
+                                ) : (
+                                    channelData?.channel.name || channelId
+                                )}
+                            </h2>
+                            <div className="mt-0.5 flex items-center gap-2 text-[8px] font-black uppercase tracking-[0.16em] text-white/22">
+                                <span
+                                    className={clsx(
+                                        "rounded-full px-2 py-0.5",
+                                        isConnecting ? "bg-amber-500/10 text-amber-300/80" : "bg-emerald-500/10 text-emerald-300/80"
+                                    )}
+                                >
+                                    {isConnecting ? 'Reconnecting' : 'Realtime Synced'}
+                                </span>
+                            </div>
+                        </div>
                     </div>
 
                     {/* Header Actions */}
-                    <div className="flex items-center gap-1.5">
+                    <div className="flex items-center gap-2">
                         <button
                             onClick={() => setIsMembersPanelOpen(!isMembersPanelOpen)}
-                            className={`p-2 rounded-full transition-all duration-300 ${isMembersPanelOpen ? 'text-brand-accent bg-brand-accent/10 hover:bg-brand-accent/20' : 'text-white/40 hover:text-white hover:bg-white/5'}`}
+                            className={clsx(
+                                "rounded-xl border p-2.5 transition-all duration-300",
+                                isMembersPanelOpen ? "border-brand-accent/20 bg-brand-accent/10 text-brand-accent hover:bg-brand-accent/15" : "border-transparent text-white/40 hover:border-white/6 hover:bg-white/5 hover:text-white"
+                            )}
                             title="Toggle Member List"
+                            aria-label="Toggle member list"
                         >
                             <Users size={16} strokeWidth={2.5} />
                         </button>
                         {channelData?.isAdmin && (
                             <button
                                 onClick={() => setIsAddMemberOpen(true)}
-                                className="p-2 rounded-full text-white/40 hover:text-white hover:bg-white/5 transition-all duration-300"
+                                className="rounded-xl border border-transparent p-2.5 text-white/40 transition-all duration-300 hover:border-white/6 hover:bg-white/5 hover:text-white"
                                 title="Add Member"
+                                aria-label="Add member"
                             >
                                 <UserPlus size={16} strokeWidth={2.5} />
                             </button>
@@ -466,8 +503,9 @@ const ChatArea = () => {
                         {!channelData?.isAdmin && channelData && (
                             <button
                                 onClick={() => setIsLeaveConfirmOpen(true)}
-                                className="p-2 rounded-full text-white/30 hover:text-red-400 hover:bg-red-500/10 transition-all duration-300"
+                                className="rounded-xl border border-transparent p-2.5 text-white/30 transition-all duration-300 hover:border-red-500/12 hover:bg-red-500/10 hover:text-red-400"
                                 title="Leave Channel"
+                                aria-label="Leave channel"
                             >
                                 <LogOut size={15} strokeWidth={2.5} />
                             </button>
@@ -476,86 +514,99 @@ const ChatArea = () => {
                 </div>
 
                 {/* Messages Scroll Area */}
-                <div className="flex-1 overflow-y-auto px-1 py-6 md:px-8 scrollbar-hide">
+                <div className="page-fade-mask flex-1 overflow-y-auto scrollbar-hide">
+                    <div className="mx-auto flex h-full w-full max-w-5xl flex-col px-1 py-6 md:px-4">
 
-                    {/* Load Earlier Messages */}
-                    {hasMore && !isLoading && (
-                        <div className="flex justify-center mb-6">
-                            <button
-                                onClick={loadOlderMessages}
-                                disabled={isLoadingOlder}
-                                className="flex items-center gap-2 px-4 py-2 text-[10px] font-black uppercase tracking-[0.15em] text-white/30 hover:text-white/60 bg-white/5 hover:bg-white/10 rounded-full border border-white/5 transition-all duration-200 disabled:opacity-50"
-                            >
-                                {isLoadingOlder ? (
-                                    <Loader2 size={14} className="animate-spin" />
-                                ) : (
-                                    <ChevronUp size={14} />
-                                )}
-                                {isLoadingOlder ? "Loading..." : "Load Earlier Messages"}
-                            </button>
-                        </div>
-                    )}
+                        {/* Load Earlier Messages */}
+                        {hasMore && !isLoading && (
+                            <div className="sticky top-4 z-10 mb-6 flex justify-center">
+                                <button
+                                    onClick={loadOlderMessages}
+                                    disabled={isLoadingOlder}
+                                    className="flex items-center gap-2 rounded-full border border-white/6 bg-brand-surface/85 px-4 py-2 text-[10px] font-black uppercase tracking-[0.15em] text-white/30 shadow-xl shadow-black/20 backdrop-blur-xl transition-all duration-200 hover:border-white/10 hover:bg-brand-surface hover:text-white/60 disabled:opacity-50"
+                                >
+                                    {isLoadingOlder ? (
+                                        <Loader2 size={14} className="animate-spin" />
+                                    ) : (
+                                        <ChevronUp size={14} />
+                                    )}
+                                    {isLoadingOlder ? "Loading..." : "Load Earlier Messages"}
+                                </button>
+                            </div>
+                        )}
 
-                    {isLoading ? (
-                        <div className="flex flex-col items-center justify-center h-full text-white/10 animate-in fade-in zoom-in duration-1000">
-                            <div className="bg-white/2 p-5 rounded-full mb-8 border border-white/5 shadow-inner">
-                                <Hash size={64} className="opacity-10 animate-pulse" />
-                            </div>
-                            <h3 className="text-2xl font-black tracking-tight text-white/30 uppercase font-serif">Loading Messages</h3>
-                        </div>
-                    ) : processedMessages.length === 0 ? (
-                        <div className="flex flex-col items-center justify-center h-full text-white/10 animate-in fade-in zoom-in duration-1000">
-                            <div className="bg-white/2 p-5 rounded-full mb-8 border border-white/5 shadow-inner">
-                                <Hash size={64} />
-                            </div>
-                            <h3 className="text-2xl font-black tracking-tight text-white uppercase font-serif">Channel History Starts Here</h3>
-                            <p className="max-w-xs text-center mt-4 text-sm font-medium text-white/40 italic font-sans leading-relaxed">
-                                This is the very beginning of the <strong className="text-brand-accent-soft">#{channelData?.channel.name}</strong> history. Make it count.
-                            </p>
-                        </div>
-                    ) : (
-                        processedMessages.map((msg) => (
-                            <Fragment key={msg._id}>
-                                {msg.showDateSeparator && (
-                                    <div className="flex items-center gap-6 my-10 px-4 opacity-40 pointer-events-none select-none">
-                                        <div className="h-px bg-white/5 flex-1"></div>
-                                        <span className="text-[10px] font-black uppercase tracking-[0.2em] text-white/40">
-                                            {msg.dateLabel}
-                                        </span>
-                                        <div className="h-px bg-white/5 flex-1"></div>
-                                    </div>
-                                )}
-                                <div data-message-id={msg._id}>
-                                    <MessageItem
-                                        message={msg}
-                                        consecutive={msg.isConsecutive}
-                                        isCurrentUser={msg.author?._id === userData?.userId}
-                                        isAdmin={msg.author?._id === channelData?.channel?.admin}
-                                        currentUserId={userData?.userId}
-                                        onEdit={handleEditMessage}
-                                        onDelete={handleDeleteMessage}
-                                        onReact={handleReaction}
-                                        onReply={handleReply}
-                                        onScrollToMessage={scrollToMessage}
-                                    />
+                        {isLoading ? (
+                            <div className="flex min-h-104 flex-1 flex-col items-center justify-center text-white/10 animate-in fade-in zoom-in duration-1000">
+                                <div className="mb-8 rounded-full border border-white/5 bg-white/2 p-5 shadow-inner">
+                                    <Hash size={64} className="opacity-10 animate-pulse" />
                                 </div>
-                            </Fragment>
-                        ))
-                    )}
-                    <div ref={messagesEndRef} className="h-8" />
+                                <h3 className="font-serif text-2xl font-black uppercase tracking-tight text-white/30">Loading Messages</h3>
+                            </div>
+                        ) : processedMessages.length === 0 ? (
+                            <div className="flex min-h-112 flex-1 flex-col items-center justify-center text-white/10 animate-in fade-in zoom-in duration-1000">
+                                <div className="mb-8 rounded-full border border-white/5 bg-white/2 p-5 shadow-inner">
+                                    <Hash size={64} />
+                                </div>
+                                <h3 className="font-serif text-2xl font-black uppercase tracking-tight text-white">Channel History Starts Here</h3>
+                                <p className="mt-4 max-w-xs text-center text-sm font-medium leading-relaxed text-white/40">
+                                    This is the very beginning of the <strong className="text-brand-accent-soft">#{channelData?.channel.name}</strong> history. Make it count.
+                                </p>
+                                {channelData?.isAdmin && (
+                                    <button
+                                        onClick={() => setIsAddMemberOpen(true)}
+                                        className="mt-8 inline-flex items-center gap-2 rounded-full border border-white/8 bg-white/4 px-5 py-2.5 text-[10px] font-black uppercase tracking-[0.16em] text-white/55 transition-all duration-300 hover:border-white/12 hover:bg-white/8 hover:text-white"
+                                    >
+                                        <UserPlus size={14} />
+                                        Invite Your First Member
+                                    </button>
+                                )}
+                            </div>
+                        ) : (
+                            processedMessages.map((item) => (
+                                <Fragment key={item.message._id}>
+                                    {item.showDateSeparator && (
+                                        <div className="pointer-events-none my-10 flex items-center gap-6 px-4 opacity-40 select-none">
+                                            <div className="h-px flex-1 bg-white/5"></div>
+                                            <span className="text-[10px] font-black uppercase tracking-[0.2em] text-white/40">
+                                                {item.dateLabel}
+                                            </span>
+                                            <div className="h-px flex-1 bg-white/5"></div>
+                                        </div>
+                                    )}
+                                    <div data-message-id={item.message._id}>
+                                        <MessageItem
+                                            message={item.message}
+                                            consecutive={item.isConsecutive}
+                                            isCurrentUser={item.message.author?._id === userData?.userId}
+                                            isAdmin={item.message.author?._id === channelData?.channel?.admin}
+                                            currentUserId={userData?.userId}
+                                            onEdit={handleEditMessage}
+                                            onDelete={handleDeleteMessage}
+                                            onReact={handleReaction}
+                                            onReply={handleReply}
+                                            onScrollToMessage={scrollToMessage}
+                                        />
+                                    </div>
+                                </Fragment>
+                            ))
+                        )}
+                        <div ref={messagesEndRef} className="h-12" />
+                    </div>
                 </div>
 
                 {/* Input Area */}
-                <div className="relative z-20 shrink-0">
+                <div className="relative z-20 shrink-0 bg-brand-dark pt-2">
                     {/* Typing Indicator */}
                     {Object.keys(typingUsers).length > 0 && (
-                        <div className="px-8 pb-2 flex items-center gap-2 text-[10px] font-bold uppercase tracking-wider text-white/30 animate-in fade-in slide-in-from-bottom-2 duration-300">
-                            <div className="flex items-center gap-1 opacity-50">
-                                <span className="w-1.5 h-1.5 rounded-full bg-white/40 animate-pulse" />
+                        <div className="mx-auto flex w-full max-w-5xl px-4 pb-2 pt-3 md:px-8">
+                            <div className="inline-flex items-center gap-2 rounded-full border border-white/6 bg-brand-surface/70 px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-white/30 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                                <div className="flex items-center gap-1 opacity-50">
+                                    <span className="h-1.5 w-1.5 rounded-full bg-white/40 animate-pulse" />
+                                </div>
+                                <span className="truncate max-w-[220px]">
+                                    <span className="text-white/60">{Object.values(typingUsers).join(", ")}</span> {Object.keys(typingUsers).length === 1 ? "is typing..." : "are typing..."}
+                                </span>
                             </div>
-                            <span className="truncate max-w-[200px]">
-                                <span className="text-white/60">{Object.values(typingUsers).join(", ")}</span> {Object.keys(typingUsers).length === 1 ? "is typing..." : "are typing..."}
-                            </span>
                         </div>
                     )}
 
@@ -567,16 +618,6 @@ const ChatArea = () => {
                         replyingTo={replyingTo}
                         onCancelReply={() => setReplyingTo(null)}
                     />
-
-                    {/* Connection Status Overlay */}
-                    <div className="absolute top-0 right-12 select-none pointer-events-none -translate-y-1/2 z-30">
-                        <div className="flex items-center gap-2 px-3 py-1 bg-brand-surface rounded-full border border-white/4 shadow-xl">
-                            <div className={`w-2 h-2 rounded-full ${isConnecting ? 'bg-amber-500 animate-pulse' : 'bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.3)]'}`} />
-                            <span className="text-[9px] font-black uppercase tracking-widest text-white/40">
-                                {isConnecting ? 'Connecting' : 'Operational'}
-                            </span>
-                        </div>
-                    </div>
                 </div>
 
                 {/* Leave Confirmation Dialog */}
@@ -607,6 +648,7 @@ const ChatArea = () => {
                 socket={socketRef.current}
                 isAdmin={channelData?.isAdmin}
                 currentUserId={userData?.userId}
+                onClose={() => setIsMembersPanelOpen(false)}
             />
         </div>
     );

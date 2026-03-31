@@ -4,7 +4,7 @@ import { Hash, ArrowLeft } from "lucide-react";
 
 export default function NotFoundPage() {
   return (
-    <div className="min-h-screen bg-brand-dark flex flex-col items-center justify-center p-6 relative overflow-hidden font-sans">
+    <div className="min-h-dvh bg-brand-dark flex flex-col items-center justify-center p-6 relative overflow-hidden font-sans">
       {/* Ambient glow */}
       <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-brand-accent/5 rounded-full filter blur-[120px] pointer-events-none" />
 
@@ -14,9 +14,13 @@ export default function NotFoundPage() {
         transition={{ duration: 0.6, ease: "easeOut" }}
         className="relative z-10 text-center max-w-md"
       >
+        <p className="mb-4 text-[10px] font-black uppercase tracking-[0.22em] text-white/25">
+          Lost in the ether
+        </p>
+
         {/* Icon */}
         <div className="flex justify-center mb-8">
-          <div className="w-20 h-20 rounded-[28px] bg-brand-surface border border-white/5 flex items-center justify-center shadow-2xl rotate-6">
+          <div className="w-20 h-20 rounded-[28px] bg-brand-surface border border-white/5 ring-1 ring-white/4 flex items-center justify-center shadow-2xl rotate-6">
             <Hash size={36} className="text-brand-accent" />
           </div>
         </div>
@@ -27,7 +31,7 @@ export default function NotFoundPage() {
         </p>
 
         {/* Heading */}
-        <h1 className="text-5xl font-black text-white font-serif tracking-tight leading-none mb-4">
+        <h1 className="text-5xl font-black text-white font-serif tracking-tight leading-none mb-4 text-balance">
           Page Not Found
         </h1>
 
