@@ -139,18 +139,21 @@ const CreateChannelModal = ({ isOpen, onClose }: CreateChannelModalProps) => {
             <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col">
               <div className="p-8">
                 <div className="space-y-3 w-full">
-                  <label className="text-[10px] font-black uppercase tracking-[0.2em] text-white/30 ml-1">
+                  <label htmlFor="name" className="text-[10px] font-black uppercase tracking-[0.2em] text-white/30 ml-1">
                     Channel Name
                   </label>
                   <div className={`flex items-center gap-3 bg-brand-dark/50 rounded-lg p-3 border transition-all duration-300 ${errors.name || mutation.isError ? 'border-red-500/50' : 'border-white/6 focus-within:border-brand-accent/40 focus-within:bg-brand-dark/70'}`}>
                     <Hash className="shrink-0 text-white/20" size={18} />
                     <input
+                      id="name"
                       type="text"
                       className="bg-transparent text-white font-medium w-full focus:outline-none placeholder:text-white/10 text-[15px]"
                       placeholder="e.g. new-project"
                       {...register("name")}
                       disabled={mutation.isPending}
                       autoFocus
+                      aria-invalid={!!errors.name}
+                      aria-describedby={errors.name ? "name-error" : undefined}
                     />
                   </div>
                   <p className="text-[11px] font-medium text-white/18 ml-1">
@@ -163,7 +166,7 @@ const CreateChannelModal = ({ isOpen, onClose }: CreateChannelModalProps) => {
                     </div>
                   )}
                   {errors.name && (
-                    <p className="text-[11px] text-red-500 font-bold mt-1 ml-1" aria-live="polite">
+                    <p id="name-error" className="text-[11px] text-red-500 font-bold mt-1 ml-1" aria-live="polite">
                       {errors.name.message}
                     </p>
                   )}

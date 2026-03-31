@@ -112,18 +112,21 @@ const AddMemberModal = ({ isOpen, onClose, channelId }: AddMemberModalProps) => 
             <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col">
               <div className="p-8">
                 <div className="space-y-3 w-full">
-                  <label className="text-[10px] font-black uppercase tracking-[0.2em] text-white/30 ml-1">
+                  <label htmlFor="email" className="text-[10px] font-black uppercase tracking-[0.2em] text-white/30 ml-1">
                     User Email
                   </label>
                   <div className={`flex items-center gap-3 bg-brand-dark/50 rounded-lg p-3 border transition-all duration-300 ${errors.email || mutation.isError ? 'border-red-500/50' : mutation.isSuccess ? 'border-emerald-500/50' : 'border-white/6 focus-within:border-brand-accent/40 focus-within:bg-brand-dark/70'}`}>
                     <Mail className="shrink-0 text-white/20" size={18} />
                     <input
+                      id="email"
                       type="email"
                       className="bg-transparent text-white font-medium w-full focus:outline-none placeholder:text-white/10 text-[15px]"
                       placeholder="name@example.com"
                       {...register("email")}
                       disabled={mutation.isPending || mutation.isSuccess}
                       autoFocus
+                      aria-invalid={!!errors.email}
+                      aria-describedby={errors.email ? "email-error" : undefined}
                     />
                   </div>
                   <p className="text-[11px] font-medium text-white/18 ml-1">
@@ -131,6 +134,7 @@ const AddMemberModal = ({ isOpen, onClose, channelId }: AddMemberModalProps) => 
                   </p>
                   {errors.email && (
                     <motion.p
+                      id="email-error"
                       initial={{ opacity: 0, y: -4 }}
                       animate={{ opacity: 1, y: 0 }}
                       className="text-[11px] text-red-500 font-bold mt-1 ml-1"
