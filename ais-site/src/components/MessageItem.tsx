@@ -153,7 +153,7 @@ const MessageItem = ({
         <div
             className={clsx(
                 "group relative flex gap-4 px-6 md:px-8 hover:bg-white/1.5 transition-colors animate-in slide-in-from-bottom-1 duration-300 fill-mode-both",
-                consecutive ? "py-[3px] mt-0" : "py-1.5 mt-5"
+                consecutive ? "py-[3px] mt-0" : "pt-2 pb-[3px] mt-5"
             )}
         >
             {/* Left Gutter: Avatar */}

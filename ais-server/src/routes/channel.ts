@@ -2,11 +2,34 @@ import { Hono } from "hono";
 import z from "zod/v4";
 import { authMiddleware, type AuthEnv } from "../middleware/auth.js";
 import { ChannelModel } from "../models/channel-model.js";
+import { LastReadModel } from "../models/last-read-model.js";
 import { MessageModel } from "../models/message-model.js";
 import { UserModel } from "../models/user-model.js";
 import { onlineUsersList, io } from "../sockets.js";
 
 const channelRouter = new Hono<AuthEnv>();
+
+const upsertLastRead = async (userId: string, channelId: string, messageId?: string | null) => {
+  if (!messageId) return null;
+
+  await LastReadModel.findOneAndUpdate(
+    {
+      userId,
+      channelId,
+    },
+    {
+      lastReadMessageId: messageId,
+      lastReadAt: new Date(),
+    },
+    {
+      upsert: true,
+      new: true,
+      setDefaultsOnInsert: true,
+    }
+  );
+
+  return messageId;
+};
 
 // Apply auth middleware to all channel routes
 channelRouter.use("*", authMiddleware);
@@ -48,15 +71,60 @@ channelRouter.get("/user", async (c) => {
   }).select({
     name: 1,
     createdAt: 1,
-  });
+  }).lean();
 
-  return c.json(channels);
+  const channelIds = channels.map((channel) => channel._id);
+  const lastReads = channelIds.length > 0
+    ? await LastReadModel.find({
+      userId: user.id,
+      channelId: { $in: channelIds },
+    }).select({
+      channelId: 1,
+      lastReadMessageId: 1,
+    }).lean()
+    : [];
+
+  const lastReadByChannel = new Map(
+    lastReads.map((lastRead) => [
+      lastRead.channelId.toString(),
+      lastRead.lastReadMessageId?.toString() ?? null,
+    ])
+  );
+
+  const channelsWithUnreadCount = await Promise.all(
+    channels.map(async (channel) => {
+      const lastReadMessageId = lastReadByChannel.get(channel._id.toString());
+      const unreadCount = await MessageModel.countDocuments({
+        channelId: channel._id,
+        ...(lastReadMessageId ? { _id: { $gt: lastReadMessageId } } : {}),
+      });
+
+      return {
+        ...channel,
+        unreadCount,
+      };
+    })
+  );
+
+  return c.json(channelsWithUnreadCount);
 });
 
 channelRouter.get("/:id/messages", async (c) => {
+  const user = c.get("user");
   const { id } = c.req.param();
   const before = c.req.query("before");
   const limit = Math.min(parseInt(c.req.query("limit") || "50", 10), 100);
+
+  const isMember = await ChannelModel.exists({
+    _id: id,
+    members: user.id,
+  });
+  if (!isMember) {
+    c.status(403);
+    return c.json({
+      msg: "User not authorized to view this channel",
+    });
+  }
 
   const query: Record<string, any> = { channelId: id };
   if (before) {
@@ -83,6 +151,11 @@ channelRouter.get("/:id/messages", async (c) => {
   // Return in chronological order
   messages.reverse();
 
+  if (!before && messages.length > 0) {
+    const latestVisibleMessage = messages[messages.length - 1];
+    await upsertLastRead(user.id.toString(), id, latestVisibleMessage._id.toString());
+  }
+
   return c.json({
     messages,
     hasMore: messages.length === limit,
@@ -92,6 +165,17 @@ channelRouter.get("/:id/messages", async (c) => {
 channelRouter.get("/:id", async (c) => {
   const user = c.get("user");
   const { id } = c.req.param();
+
+  const isMember = await ChannelModel.exists({
+    _id: id,
+    members: user.id,
+  });
+  if (!isMember) {
+    c.status(403);
+    return c.json({
+      msg: "User not authorized to view this channel",
+    });
+  }
 
   const channel = await ChannelModel.findById(id)
     .populate("members", "name")
@@ -111,6 +195,63 @@ channelRouter.get("/:id", async (c) => {
   return c.json({
     channel,
     isAdmin: channel.admin && channel.admin?.toString() === user.id.toString(),
+  });
+});
+
+channelRouter.post("/:id/read", async (c) => {
+  const user = c.get("user");
+  const { id } = c.req.param();
+
+  const isMember = await ChannelModel.exists({
+    _id: id,
+    members: user.id,
+  });
+  if (!isMember) {
+    c.status(403);
+    return c.json({
+      msg: "User not authorized to view this channel",
+    });
+  }
+
+  const body = await c.req.json().catch(() => ({}));
+  const schema = z.object({
+    messageId: z.string().optional(),
+  });
+  const result = schema.safeParse(body);
+
+  if (!result.success) {
+    c.status(400);
+    return c.json({
+      msg: "Malformed input",
+    });
+  }
+
+  let messageId = result.data.messageId;
+  if (messageId) {
+    const messageExists = await MessageModel.exists({
+      _id: messageId,
+      channelId: id,
+    });
+    if (!messageExists) {
+      c.status(404);
+      return c.json({
+        msg: "Message not found",
+      });
+    }
+  } else {
+    const latestMessage = await MessageModel.findOne({ channelId: id })
+      .sort({ _id: -1 })
+      .select({ _id: 1 })
+      .lean();
+
+    messageId = latestMessage?._id?.toString();
+  }
+
+  await upsertLastRead(user.id.toString(), id, messageId);
+
+  return c.json({
+    msg: "Channel marked as read",
+    lastReadMessageId: messageId ?? null,
   });
 });
 
@@ -341,6 +482,7 @@ channelRouter.post("/:id/leave", async (c) => {
 
   channel.members = channel.members.filter((m: any) => m.toString() !== user.id.toString()) as any;
   await channel.save();
+  await LastReadModel.deleteOne({ userId: user.id, channelId: id });
 
   return c.json({ msg: "Left channel successfully" });
 });
@@ -374,6 +516,7 @@ channelRouter.delete("/:id/members/:userId", async (c) => {
 
   channel.members = channel.members.filter((m: any) => m.toString() !== userId) as any;
   await channel.save();
+  await LastReadModel.deleteOne({ userId, channelId: id });
 
   // Notify the kicked user via socket if they're online
   io.to(id).emit("member_removed", { userId });

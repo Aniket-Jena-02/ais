@@ -5,13 +5,14 @@ import {
     Hash,
     UserPlus,
     ChevronUp,
+    ChevronDown,
     Loader2,
     Users,
     LogOut
 } from "lucide-react"
 import MessageInput from "./MessageInput"
 import MessageItem, { type Message, type Reaction } from "./MessageItem"
-import { useQuery } from "@tanstack/react-query"
+import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { format, isSameDay, isToday, isYesterday, isValid } from "date-fns"
 import AddMemberModal from "./AddMemberModal"
 import MembersPanel from "./MembersPanel"
@@ -19,6 +20,7 @@ import { useDebounceFn } from "ahooks"
 import { toast } from "sonner"
 import ConfirmDialog from "./ConfirmDialog"
 import clsx from "clsx"
+import { AnimatePresence, motion } from "framer-motion"
 
 interface ProcessedMessage {
     message: Message
@@ -27,13 +29,22 @@ interface ProcessedMessage {
     isConsecutive: boolean
 }
 
+interface UserChannelItem {
+    _id: string
+    name: string
+    createdAt: string
+    unreadCount: number
+}
+
 const MESSAGES_PER_PAGE = 50
+const SCROLL_BOTTOM_THRESHOLD = 96
 
 const ChatArea = () => {
     const { channelId } = useParams({
         from: '/channels/$channelId',
     })
     const navigate = useNavigate()
+    const queryClient = useQueryClient()
 
     // Fetch channel metadata (no longer includes messages)
     const { data: channelData, isLoading: isChannelLoading } = useQuery({
@@ -82,7 +93,21 @@ const ChatArea = () => {
     })
 
     const socketRef = useRef<Socket | null>(null)
+    const scrollContainerRef = useRef<HTMLDivElement>(null)
     const messagesEndRef = useRef<HTMLDivElement>(null)
+    const [showScrollToBottom, setShowScrollToBottom] = useState(false)
+
+    const setChannelUnreadCount = useCallback((targetChannelId: string, unreadCount: number) => {
+        queryClient.setQueryData<UserChannelItem[]>(["user-channels"], (previous) => {
+            if (!previous) return previous
+
+            return previous.map((channel) =>
+                channel._id === targetChannelId
+                    ? { ...channel, unreadCount }
+                    : channel
+            )
+        })
+    }, [queryClient])
 
     const updateMessageEverywhere = useCallback((updater: (message: Message) => Message) => {
         setOlderMessages((prev) => prev.map(updater))
@@ -104,11 +129,53 @@ const ChatArea = () => {
         }
     }, [messagesData])
 
+    const markChannelAsRead = useCallback(async (messageId?: string) => {
+        if (!channelId) return
+
+        try {
+            const res = await fetch(`${import.meta.env.VITE_API}/channels/${channelId}/read`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(messageId ? { messageId } : {}),
+                credentials: "include",
+            })
+            if (!res.ok) {
+                throw new Error("Failed to mark channel as read")
+            }
+            setChannelUnreadCount(channelId, 0)
+        } catch (error) {
+            console.error("Failed to mark channel as read:", error)
+        }
+    }, [channelId, setChannelUnreadCount])
+
+    useEffect(() => {
+        queryClient.invalidateQueries({ queryKey: ["user-channels"] })
+    }, [channelId, queryClient])
+
+    useEffect(() => {
+        if (!messagesData) return
+
+        const latestInitialMessage = messagesData.messages[messagesData.messages.length - 1]
+        if (latestInitialMessage?._id) {
+            markChannelAsRead(latestInitialMessage._id)
+        } else if (channelId) {
+            setChannelUnreadCount(channelId, 0)
+        }
+    }, [channelId, markChannelAsRead, messagesData, setChannelUnreadCount])
+
     // Auto scroll to bottom
     const isInitialScrollRef = useRef(true)
     const scrollToBottom = (behavior: ScrollBehavior) => {
         messagesEndRef.current?.scrollIntoView({ behavior })
     }
+
+    const updateScrollToBottomVisibility = useCallback(() => {
+        const container = scrollContainerRef.current
+        if (!container) return
+
+        const distanceFromBottom = container.scrollHeight - container.scrollTop - container.clientHeight
+        setShowScrollToBottom(distanceFromBottom > SCROLL_BOTTOM_THRESHOLD)
+    }, [])
 
     const latestMessageId = useMemo(() => {
         const latestMessages = messages.length > 0 ? messages : initialMessages
@@ -130,6 +197,22 @@ const ChatArea = () => {
             scrollToBottom("smooth")
         }
     }, [initialMessages.length, latestMessageId, messages.length])
+
+    useEffect(() => {
+        const container = scrollContainerRef.current
+        if (!container) return
+
+        const handleScroll = () => {
+            updateScrollToBottomVisibility()
+        }
+
+        updateScrollToBottomVisibility()
+        container.addEventListener("scroll", handleScroll, { passive: true })
+
+        return () => {
+            container.removeEventListener("scroll", handleScroll)
+        }
+    }, [updateScrollToBottomVisibility])
 
     // Reset state when channel changes
     useEffect(() => {
@@ -156,6 +239,9 @@ const ChatArea = () => {
 
         socket.on("channel_message", (message: Message) => {
             setMessages((prev) => [...prev, message])
+            if (message._id) {
+                markChannelAsRead(message._id)
+            }
         })
 
         socket.on("message_edited", (data: { messageId: string; content: string; updatedAt: string }) => {
@@ -205,7 +291,7 @@ const ChatArea = () => {
             socket.disconnect()
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [removeMessageEverywhere, updateMessageEverywhere])
+    }, [markChannelAsRead, removeMessageEverywhere, updateMessageEverywhere])
 
     // Effect 2: Join the new channel room whenever channelId changes.
     // Leaves the previous room automatically (socket.io leaves on re-join).
@@ -358,6 +444,7 @@ const ChatArea = () => {
                     createdAt: new Date().toISOString(),
                     replyTo: res.replyTo || replyData,
                 }])
+                markChannelAsRead(res.messageId)
             }
         })
 
@@ -447,6 +534,12 @@ const ChatArea = () => {
 
     const isLoading = isChannelLoading || isMessagesLoading
 
+    useEffect(() => {
+        requestAnimationFrame(() => {
+            updateScrollToBottomVisibility()
+        })
+    }, [isLoading, processedMessages.length, updateScrollToBottomVisibility])
+
     return (
         <div className="relative flex h-full w-full min-w-0 overflow-hidden bg-brand-dark">
             <div className="relative flex h-full min-w-0 flex-1 flex-col overflow-hidden">
@@ -514,7 +607,10 @@ const ChatArea = () => {
                 </div>
 
                 {/* Messages Scroll Area */}
-                <div className="page-fade-mask flex-1 overflow-y-auto scrollbar-hide">
+                <div
+                    ref={scrollContainerRef}
+                    className="page-fade-mask flex-1 overflow-y-auto scrollbar-hide"
+                >
                     <div className="mx-auto flex h-full w-full max-w-5xl flex-col px-1 py-6 md:px-4">
 
                         {/* Load Earlier Messages */}
@@ -593,6 +689,27 @@ const ChatArea = () => {
                         <div ref={messagesEndRef} className="h-12" />
                     </div>
                 </div>
+
+                <AnimatePresence>
+                    {showScrollToBottom && (
+                        <motion.div
+                            initial={{ opacity: 0, y: 15, scale: 0.9 }}
+                            animate={{ opacity: 1, y: 0, scale: 1 }}
+                            exit={{ opacity: 0, y: 15, scale: 0.9 }}
+                            transition={{ type: "spring", stiffness: 450, damping: 25 }}
+                            className="pointer-events-none absolute bottom-28 right-4 z-20 md:right-8"
+                        >
+                            <button
+                                onClick={() => scrollToBottom("smooth")}
+                                className="group pointer-events-auto flex h-11 w-11 items-center justify-center rounded-2xl border border-white/5 bg-white/5 text-white/50 shadow-[0_16px_32px_-12px_rgba(0,0,0,0.8)] backdrop-blur-xl transition-all duration-300 hover:border-white/15 hover:bg-white/10 hover:text-white hover:shadow-[0_20px_40px_-12px_rgba(0,0,0,1)] active:scale-90"
+                                title="Scroll to bottom"
+                                aria-label="Scroll to bottom"
+                            >
+                                <ChevronDown size={20} strokeWidth={2.5} className="transition-transform duration-300 group-hover:translate-y-0.5" />
+                            </button>
+                        </motion.div>
+                    )}
+                </AnimatePresence>
 
                 {/* Input Area */}
                 <div className="relative z-20 shrink-0 bg-brand-dark pt-2">

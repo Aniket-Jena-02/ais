@@ -14,6 +14,13 @@ interface CollapsedTooltipState {
   top: number;
 }
 
+interface UserChannel {
+  _id: string;
+  name: string;
+  createdAt: string;
+  unreadCount: number;
+}
+
 const UserChannels = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [collapsedTooltip, setCollapsedTooltip] = useState<CollapsedTooltipState | null>(null);
@@ -42,15 +49,13 @@ const UserChannels = () => {
         throw new Error("Failed to fetch channels");
       }
 
-      return (await res.json()) as {
-        _id: string;
-        name: string;
-        createdAt: string;
-      }[];
+      return (await res.json()) as UserChannel[];
     },
   });
 
   const channelCount = channels?.length ?? 0;
+  const sidebarWidthClass = isCollapsed ? "w-16" : "w-[280px]";
+  const formatUnreadCount = (count: number) => count > 99 ? "99+" : count.toString();
 
   const hideCollapsedTooltip = useCallback(() => {
     tooltipAnchorRef.current = null;
@@ -104,7 +109,7 @@ const UserChannels = () => {
   // Loading State
   if (isLoading) {
     return (
-      <div className="w-[280px] h-full bg-brand-surface/50 flex items-center justify-center border-r border-white/4">
+      <div className={`${sidebarWidthClass} h-full shrink-0 bg-brand-surface/50 flex items-center justify-center border-r border-white/4`}>
         <Loader2 className="w-6 h-6 animate-spin text-brand-accent opacity-50" />
       </div>
     );
@@ -113,7 +118,7 @@ const UserChannels = () => {
   // Error State
   if (isError) {
     return (
-      <div className="w-[280px] h-full bg-brand-surface/50 border-r border-white/4 p-4 flex flex-col justify-center items-center text-center gap-4">
+      <div className={`${sidebarWidthClass} h-full shrink-0 bg-brand-surface/50 border-r border-white/4 p-4 flex flex-col justify-center items-center text-center gap-4`}>
         <div className="w-12 h-12 rounded-full bg-brand-accent/10 flex items-center justify-center text-brand-accent">
           <Hash size={24} />
         </div>
@@ -267,6 +272,21 @@ const UserChannels = () => {
                             />
                           )}
                           <Hash size={16} className={`shrink-0 transition-colors duration-200 ${isActive ? 'text-brand-accent' : 'text-white/20 group-hover:text-white/40'}`} />
+                          <AnimatePresence>
+                            {channel.unreadCount > 0 && (
+                              <motion.div
+                                initial={{ scale: 0.5, opacity: 0, y: 5 }}
+                                animate={{ scale: 1, opacity: 1, y: 0 }}
+                                exit={{ scale: 0.5, opacity: 0, y: -5 }}
+                                transition={{ type: "spring", stiffness: 500, damping: 30 }}
+                                className="absolute -right-1.5 -top-1.5 z-10"
+                              >
+                                <span className="inline-flex min-w-[16px] h-[16px] items-center justify-center rounded border-[1.5px] border-brand-surface bg-brand-accent px-1 text-[9px] font-black tracking-tighter text-white tabular-nums">
+                                  {formatUnreadCount(channel.unreadCount)}
+                                </span>
+                              </motion.div>
+                            )}
+                          </AnimatePresence>
                         </>
                       )}
                     </Link>
@@ -293,6 +313,21 @@ const UserChannels = () => {
                           )}
                           <Hash size={16} className={`shrink-0 transition-colors duration-200 ${isActive ? 'text-brand-accent' : 'text-white/20 group-hover:text-white/40'}`} />
                           <span className="truncate">{channel.name}</span>
+                          <AnimatePresence>
+                            {channel.unreadCount > 0 && (
+                              <motion.div
+                                initial={{ scale: 0.8, opacity: 0, x: -5 }}
+                                animate={{ scale: 1, opacity: 1, x: 0 }}
+                                exit={{ scale: 0.8, opacity: 0, x: 5 }}
+                                transition={{ type: "spring", stiffness: 500, damping: 30 }}
+                                className="ml-auto flex items-center shrink-0"
+                              >
+                                <span className="inline-flex min-w-[20px] items-center justify-center rounded bg-brand-accent px-1.5 py-[3px] text-[10px] font-black tracking-tighter text-white tabular-nums">
+                                  {formatUnreadCount(channel.unreadCount)}
+                                </span>
+                              </motion.div>
+                            )}
+                          </AnimatePresence>
                         </>
                       )}
                     </Link>
