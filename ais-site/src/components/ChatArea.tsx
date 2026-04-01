@@ -216,13 +216,14 @@ const ChatArea = () => {
 
     // Reset state when channel changes
     useEffect(() => {
+        const cachedMessagesData = queryClient.getQueryData<{ messages: Message[], hasMore: boolean }>(["channel messages", channelId])
         setOlderMessages([])
-        setInitialMessages([])
+        setInitialMessages(cachedMessagesData?.messages ?? [])
         setMessages([])
-        setHasMore(false)
+        setHasMore(cachedMessagesData?.hasMore ?? false)
         setReplyingTo(null)
         isInitialScrollRef.current = true
-    }, [channelId])
+    }, [channelId, queryClient])
 
     // Effect 1: Create the socket once for the lifetime of the component.
     // This does NOT depend on channelId so switching channels never disconnects.

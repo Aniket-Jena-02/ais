@@ -18,10 +18,11 @@ export const Route = createFileRoute("/channels/$channelId")({
 });
 
 function RouteComponent() {
+  const { channelId } = Route.useParams();
 
   return (
     <MainLayout>
-      <ChatArea />
+      <ChatArea key={channelId} />
     </MainLayout>
   );
 }

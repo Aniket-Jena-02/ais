@@ -23,7 +23,7 @@ const upsertLastRead = async (userId: string, channelId: string, messageId?: str
     },
     {
       upsert: true,
-      new: true,
+      returnDocument: "after",
       setDefaultsOnInsert: true,
     }
   );
