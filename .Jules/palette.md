@@ -1,0 +1,3 @@
+## 2024-04-02 - Missing aria-labels in icon-only hover toolbars
+**Learning:** Hover-based toolbars with icon-only actions (like "Reply", "Add reaction", "More options" in `MessageItem.tsx`) are a recurring pattern that frequently lack `aria-label` attributes. This renders them virtually invisible or confusing for screen reader users, who will just hear "button" without context.
+**Action:** When implementing or reviewing hover toolbars with icon buttons, always check for and add descriptive `aria-label`s, especially when the buttons rely solely on tooltips (`title`) or context for visual users.
