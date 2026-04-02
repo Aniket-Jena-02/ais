@@ -276,6 +276,7 @@ const MessageItem = ({
                             onClick={() => setIsEmojiPickerOpen(true)}
                             className="inline-flex items-center justify-center w-7 h-7 rounded-md border border-dashed border-white/5 text-white/12 hover:text-white/30 hover:border-white/8 hover:bg-white/3 transition-all duration-200"
                             title="Add reaction"
+                            aria-label="Add reaction"
                         >
                             <SmilePlus size={13} />
                         </button>
@@ -298,6 +299,7 @@ const MessageItem = ({
                                 onClick={() => setIsEmojiPickerOpen((v) => !v)}
                                 className="p-1.5 rounded-md text-white/25 hover:text-brand-accent-soft hover:bg-brand-accent/8 transition-all duration-150"
                                 title="Add reaction"
+                                aria-label="Add reaction"
                             >
                                 <SmilePlus size={15} />
                             </button>
@@ -334,6 +336,7 @@ const MessageItem = ({
                             onClick={() => onReply?.(message)}
                             className="p-1.5 rounded-md text-white/25 hover:text-blue-400 hover:bg-blue-500/8 transition-all duration-150"
                             title="Reply"
+                            aria-label="Reply"
                         >
                             <Reply size={15} />
                         </button>
@@ -346,6 +349,7 @@ const MessageItem = ({
                                         onClick={() => setIsMenuOpen((v) => !v)}
                                         className="p-1.5 rounded-md text-white/25 hover:text-white/60 hover:bg-white/5 transition-all duration-150"
                                         title="More options"
+                                        aria-label="More options"
                                     >
                                         <MoreHorizontal size={15} />
                                     </button>
