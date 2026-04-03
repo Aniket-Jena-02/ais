@@ -261,6 +261,7 @@ function MemberItem({ member, isAdmin, currentUserId, onKick }: {
           onClick={onKick}
           className="opacity-0 group-hover:opacity-100 p-1 rounded-md text-white/20 hover:text-red-400 hover:bg-red-500/10 transition-all shrink-0"
           title={`Remove ${member.name}`}
+          aria-label={`Remove ${member.name}`}
         >
           <X size={13} />
         </button>
