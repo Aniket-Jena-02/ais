@@ -173,6 +173,7 @@ const MessageItem = ({
                     <button
                         onClick={() => message.replyTo && onScrollToMessage?.(message.replyTo._id)}
                         className="mb-2 pl-3 py-1.5 border-l-2 border-brand-accent/30 rounded-r-md bg-white/2 max-w-md text-left cursor-pointer hover:bg-white/4 transition-colors duration-150 block"
+                        aria-label="Scroll to replied message"
                     >
                         <div className="flex items-center gap-1.5 mb-0.5">
                             <Reply size={10} className="text-brand-accent/50 shrink-0" />
@@ -262,6 +263,7 @@ const MessageItem = ({
                                             : "bg-white/3 border-white/4 hover:bg-white/6 hover:border-white/8"
                                     )}
                                     title={`${reaction.users.length} ${reaction.users.length === 1 ? 'reaction' : 'reactions'}`}
+                                    aria-label={`${reaction.users.length} ${reaction.users.length === 1 ? 'reaction' : 'reactions'} ${reaction.emoji}`}
                                 >
                                     <span className="leading-none">{reaction.emoji}</span>
                                     <span className={`text-[11px] font-black tabular-nums ${hasReacted ? 'text-brand-accent/60' : 'text-white/30'}`}>
@@ -276,6 +278,7 @@ const MessageItem = ({
                             onClick={() => setIsEmojiPickerOpen(true)}
                             className="inline-flex items-center justify-center w-7 h-7 rounded-md border border-dashed border-white/5 text-white/12 hover:text-white/30 hover:border-white/8 hover:bg-white/3 transition-all duration-200"
                             title="Add reaction"
+                            aria-label="Add reaction"
                         >
                             <SmilePlus size={13} />
                         </button>
@@ -298,6 +301,7 @@ const MessageItem = ({
                                 onClick={() => setIsEmojiPickerOpen((v) => !v)}
                                 className="p-1.5 rounded-md text-white/25 hover:text-brand-accent-soft hover:bg-brand-accent/8 transition-all duration-150"
                                 title="Add reaction"
+                                aria-label="Add reaction"
                             >
                                 <SmilePlus size={15} />
                             </button>
@@ -320,6 +324,7 @@ const MessageItem = ({
                                                     setIsEmojiPickerOpen(false)
                                                 }}
                                                 className="w-9 h-9 rounded-lg flex items-center justify-center hover:bg-white/6 transition-colors duration-100 text-[18px] cursor-pointer"
+                                                aria-label={emoji}
                                             >
                                                 {emoji}
                                             </motion.button>
@@ -334,6 +339,7 @@ const MessageItem = ({
                             onClick={() => onReply?.(message)}
                             className="p-1.5 rounded-md text-white/25 hover:text-blue-400 hover:bg-blue-500/8 transition-all duration-150"
                             title="Reply"
+                            aria-label="Reply"
                         >
                             <Reply size={15} />
                         </button>
@@ -346,6 +352,7 @@ const MessageItem = ({
                                         onClick={() => setIsMenuOpen((v) => !v)}
                                         className="p-1.5 rounded-md text-white/25 hover:text-white/60 hover:bg-white/5 transition-all duration-150"
                                         title="More options"
+                                        aria-label="More options"
                                     >
                                         <MoreHorizontal size={15} />
                                     </button>

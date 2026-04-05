@@ -1,0 +1,3 @@
+## 2025-02-18 - Missing ARIA Labels on Hover-based Toolbars
+**Learning:** Hover-based toolbars with icon-only actions (like those found in `MessageItem.tsx`) frequently lack `aria-label` attributes in this application, making them inaccessible to screen reader users. The developers often use the `title` attribute for tooltips but miss the explicit `aria-label` needed for screen readers when no text is present.
+**Action:** When working on or reviewing components with inline actions or hover toolbars, systematically check that all icon-only buttons have an explicit `aria-label` that clearly describes their function. Do not rely solely on `title` attributes.
