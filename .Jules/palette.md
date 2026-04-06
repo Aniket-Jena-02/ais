@@ -1,0 +1,3 @@
+## 2024-03-31 - React Hook Form ARIA Associations
+**Learning:** In forms using libraries like React Hook Form, it's easy to overlook basic accessibility associations like linking labels to inputs and dynamically describing errors because the library handles state automatically.
+**Action:** Always manually ensure `<label>` has a matching `htmlFor`, `<input>` has a matching `id`, and dynamically set `aria-invalid` and `aria-describedby` based on the validation error state to map directly to the error message element.
