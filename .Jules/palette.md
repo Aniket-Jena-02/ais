@@ -1,0 +1,3 @@
+## 2024-04-08 - Icon-Only Hover Toolbars
+**Learning:** Hover-based toolbars with icon-only actions are frequently missing ARIA attributes, making them entirely invisible to screen readers. Stateful UI components (like dropdown menus and popovers) also need proper ARIA state management (`aria-expanded`, `aria-pressed`, `aria-haspopup`) to communicate their current state.
+**Action:** Always add descriptive `aria-label`s to icon-only buttons. For buttons that toggle state or open menus, ensure `aria-expanded`, `aria-pressed`, and `aria-haspopup` are dynamically applied.
