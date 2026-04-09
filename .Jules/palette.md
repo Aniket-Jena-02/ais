@@ -1,0 +1,3 @@
+## 2024-06-25 - Add ARIA Labels to Message Item Actions
+**Learning:** Hover-based toolbars with icon-only actions (like in MessageItem) frequently lack `aria-label` attributes and need manual verification. Additionally, stateful elements like reaction buttons and dropdown menus should use `aria-pressed`, `aria-expanded`, and `aria-haspopup` appropriately.
+**Action:** When creating or reviewing components with icon-only actions and stateful behaviors, proactively add `aria-label`, `aria-expanded`, `aria-haspopup`, and `aria-pressed` to ensure accessibility and improve the experience for screen reader users.
