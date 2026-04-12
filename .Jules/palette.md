@@ -1,0 +1,3 @@
+## 2024-04-12 - Icon Button Toolbars Often Lack Required Accessible States
+**Learning:** Found that hover toolbars containing icon-only buttons (`MessageItem.tsx`) missed not just `aria-label`, but interactive state attributes like `aria-expanded` and `aria-haspopup` for dropdowns, and `aria-pressed` for toggle states. Adding only labels isn't enough for full a11y support on complex UI widgets.
+**Action:** Always check complex inline toolbars for dynamic interactive states (popups, dropdowns, toggles) and apply corresponding ARIA states (`aria-expanded`, `aria-haspopup`, `aria-pressed`) instead of stopping at just `aria-label`.
