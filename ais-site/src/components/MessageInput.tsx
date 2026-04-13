@@ -98,6 +98,7 @@ const MessageInput = ({ onSendMessage, placeholder, disabled, onTyping, replying
                                             onClick={onCancelReply}
                                             className="p-1 rounded-md text-white/20 hover:text-white hover:bg-white/4 transition-all duration-150"
                                             title="Cancel reply (Esc)"
+                                            aria-label="Cancel reply"
                                         >
                                             <X size={13} />
                                         </button>
