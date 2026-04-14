@@ -266,7 +266,7 @@ const MessageItem = ({
                                             : "bg-white/3 border-white/4 hover:bg-white/6 hover:border-white/8"
                                     )}
                                     title={`${reaction.users.length} ${reaction.users.length === 1 ? 'reaction' : 'reactions'}`}
-                                    aria-label={`${reaction.emoji} reaction, ${reaction.users.length} ${reaction.users.length === 1 ? 'person' : 'people'}`}
+                                    aria-label={`Reaction ${reaction.emoji}, ${reaction.users.length} ${reaction.users.length === 1 ? 'person' : 'people'} reacted`}
                                     aria-pressed={!!hasReacted}
                                 >
                                     <span className="leading-none">{reaction.emoji}</span>
@@ -286,7 +286,7 @@ const MessageItem = ({
                             className="inline-flex items-center justify-center w-7 h-7 rounded-md border border-dashed border-white/5 text-white/12 hover:text-white/30 hover:border-white/8 hover:bg-white/3 transition-all duration-200"
                             title="Add reaction"
                             aria-label="Add reaction"
-                            aria-haspopup="dialog"
+                            aria-haspopup="menu"
                             aria-expanded={isEmojiPickerOpen}
                         >
                             <SmilePlus size={13} />
@@ -314,8 +314,8 @@ const MessageItem = ({
                                 className="p-1.5 rounded-md text-white/25 hover:text-brand-accent-soft hover:bg-brand-accent/8 transition-all duration-150"
                                 title="Add reaction"
                                 aria-label="Add reaction"
+                                aria-haspopup="menu"
                                 aria-expanded={isEmojiPickerOpen}
-                                aria-haspopup="dialog"
                             >
                                 <SmilePlus size={15} />
                             </button>
@@ -372,8 +372,8 @@ const MessageItem = ({
                                         className="p-1.5 rounded-md text-white/25 hover:text-white/60 hover:bg-white/5 transition-all duration-150"
                                         title="More options"
                                         aria-label="More options"
-                                        aria-expanded={isMenuOpen}
                                         aria-haspopup="menu"
+                                        aria-expanded={isMenuOpen}
                                     >
                                         <MoreHorizontal size={15} />
                                     </button>
