@@ -137,12 +137,21 @@ const UserChannels = () => {
   }
 
   return (
-    <motion.div
-      initial={false}
-      animate={{ width: isCollapsed ? 64 : 280 }}
-      transition={{ duration: 0.3, ease: "easeInOut" }}
-      className="flex flex-col h-full bg-brand-surface/50 border-r border-white/4 relative z-50 shrink-0 overflow-hidden"
-    >
+    <div className="flex flex-col w-64 h-full bg-base-200 border-r border-base-300 shadow-[inset_0_0_20px_rgba(0,0,0,0.02)] relative z-20">
+      
+      {/* Header */}
+      <div className="h-14 flex items-center justify-between px-4 border-b border-base-300 shadow-sm shrink-0 bg-base-200/80 backdrop-blur-md sticky top-0 z-10">
+        <h2 className="text-sm font-black text-base-content uppercase tracking-widest flex items-center gap-2">
+          Channels
+        </h2>
+        <button 
+          aria-label="Create new channel"
+          onClick={() => setIsModalOpen(true)}
+          className="btn btn-ghost btn-xs btn-circle text-base-content/50 hover:text-base-content hover:bg-base-300 transition-colors"
+        >
+          <Plus size={16} />
+        </button>
+      </div>
 
       {/* Header */}
       <motion.div

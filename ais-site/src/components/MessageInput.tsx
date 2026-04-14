@@ -173,6 +173,7 @@ const MessageInput = ({ onSendMessage, placeholder, disabled, onTyping, replying
 
                                 <button
                                     type="submit"
+                                    aria-label="Send message"
                                     disabled={!inputValue.trim() || disabled}
                                     aria-label="Send message"
                                     className={`w-9 h-9 rounded-full flex items-center justify-center transition-all duration-300

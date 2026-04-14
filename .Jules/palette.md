@@ -1,3 +1,3 @@
-## 2025-02-20 - Missing ARIA Labels on Hover Toolbars & Strict aria-pressed in Framer Motion
-**Learning:** Found a recurring accessibility pattern where icon-only action buttons hidden inside hover-based toolbars (like message actions, replies, and reactions) consistently lack `aria-label` attributes, rendering them entirely invisible to screen readers once they become focusable. Additionally, when managing dynamic state like `aria-pressed` in `framer-motion` components, passing undefined or an empty string causes type errors; it requires a strict boolean cast (e.g., `aria-pressed={!!hasReacted}`).
-**Action:** When adding or reviewing hover-based inline toolbars, proactively ensure all icon-only buttons include an `aria-label`. For interactive elements that toggle state (like reactions, emoji pickers, or option menus), verify that `aria-expanded` and `aria-haspopup` are set where applicable, and always cast `aria-pressed` to a strict boolean.
+## 2026-03-27 - Add ARIA Labels to Icon-Only Buttons
+**Learning:** Icon-only buttons without ARIA labels are a common accessibility oversight in chat interfaces, especially for actions like sending emojis, attachments, and creating channels.
+**Action:** Always add descriptive `aria-label` attributes to buttons that rely solely on icons for visual communication.
