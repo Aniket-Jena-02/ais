@@ -305,8 +305,8 @@ const MessageItem = ({
                                 className="p-1.5 rounded-md text-white/25 hover:text-brand-accent-soft hover:bg-brand-accent/8 transition-all duration-150"
                                 title="Add reaction"
                                 aria-label="Add reaction"
-                                aria-haspopup="dialog"
                                 aria-expanded={isEmojiPickerOpen}
+                                aria-haspopup="dialog"
                             >
                                 <SmilePlus size={15} />
                             </button>
@@ -357,9 +357,9 @@ const MessageItem = ({
                                         onClick={() => setIsMenuOpen((v) => !v)}
                                         className="p-1.5 rounded-md text-white/25 hover:text-white/60 hover:bg-white/5 transition-all duration-150"
                                         title="More options"
-                                        aria-label="More message options"
-                                        aria-haspopup="menu"
+                                        aria-label="More options"
                                         aria-expanded={isMenuOpen}
+                                        aria-haspopup="menu"
                                     >
                                         <MoreHorizontal size={15} />
                                     </button>
