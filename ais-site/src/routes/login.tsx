@@ -130,44 +130,50 @@ function RouteComponent() {
 
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
             <motion.div variants={itemVariants} className="space-y-2 w-full">
-              <label className="text-[10px] font-black uppercase tracking-[0.2em] text-white/30 ml-1">
+              <label htmlFor="email" className="text-[10px] font-black uppercase tracking-[0.2em] text-white/30 ml-1">
                 Identity Profile
               </label>
               <div className={`flex items-center gap-3 bg-brand-dark/50 rounded-2xl p-4 border transition-all duration-300 ${errors.email ? 'border-red-500/50' : 'border-white/5 focus-within:border-brand-accent/40 focus-within:bg-brand-muted/60'}`}>
                 <Mail className="shrink-0 text-white/20" size={18} />
                 <input
+                  id="email"
                   type="email"
                   className="bg-transparent text-white font-medium w-full focus:outline-none placeholder:text-white/10"
                   placeholder="name@example.com"
                   autoComplete="email"
                   autoCapitalize="none"
                   spellCheck={false}
+                  aria-invalid={errors.email ? "true" : "false"}
+                  aria-describedby={errors.email ? "email-error" : undefined}
                   {...register("email")}
                 />
               </div>
               {errors.email && (
-                <p className="text-[11px] text-red-500 font-bold mt-2 ml-1 animate-in slide-in-from-top-1">
+                <p id="email-error" className="text-[11px] text-red-500 font-bold mt-2 ml-1 animate-in slide-in-from-top-1">
                   {errors.email.message}
                 </p>
               )}
             </motion.div>
 
             <motion.div variants={itemVariants} className="space-y-2 w-full">
-              <label className="text-[10px] font-black uppercase tracking-[0.2em] text-white/30 ml-1">
+              <label htmlFor="password" className="text-[10px] font-black uppercase tracking-[0.2em] text-white/30 ml-1">
                 Security Key
               </label>
               <div className={`flex items-center gap-3 bg-brand-dark/50 rounded-2xl p-4 border transition-all duration-300 ${errors.password ? 'border-red-500/50' : 'border-white/5 focus-within:border-brand-accent/40 focus-within:bg-brand-muted/60'}`}>
                 <Key className="shrink-0 text-white/20" size={18} />
                 <input
+                  id="password"
                   type="password"
                   className="bg-transparent text-white font-medium w-full focus:outline-none placeholder:text-white/10"
                   placeholder="••••••••"
                   autoComplete="current-password"
+                  aria-invalid={errors.password ? "true" : "false"}
+                  aria-describedby={errors.password ? "password-error" : undefined}
                   {...register("password")}
                 />
               </div>
               {errors.password && (
-                <p className="text-[11px] text-red-500 font-bold mt-2 ml-1 animate-in slide-in-from-top-1">
+                <p id="password-error" className="text-[11px] text-red-500 font-bold mt-2 ml-1 animate-in slide-in-from-top-1">
                   {errors.password.message}
                 </p>
               )}

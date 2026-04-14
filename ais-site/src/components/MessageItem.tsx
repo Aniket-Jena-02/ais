@@ -171,8 +171,10 @@ const MessageItem = ({
                 {/* ─── Reply Quote Block ─── */}
                 {message.replyTo && (
                     <button
+                        aria-label={`Scroll to replied message by ${message.replyTo.author?.name || "Unknown"}`}
                         onClick={() => message.replyTo && onScrollToMessage?.(message.replyTo._id)}
                         className="mb-2 pl-3 py-1.5 border-l-2 border-brand-accent/30 rounded-r-md bg-white/2 max-w-md text-left cursor-pointer hover:bg-white/4 transition-colors duration-150 block"
+                        aria-label={`Scroll to reply from ${message.replyTo.author?.name || "Unknown"}`}
                     >
                         <div className="flex items-center gap-1.5 mb-0.5">
                             <Reply size={10} className="text-brand-accent/50 shrink-0" />
@@ -253,6 +255,8 @@ const MessageItem = ({
                             return (
                                 <motion.button
                                     key={reaction.emoji}
+                                    aria-label={`React with ${reaction.emoji}`}
+                                    aria-pressed={!!hasReacted}
                                     whileTap={{ scale: 0.88 }}
                                     onClick={() => onReact?.(message._id, reaction.emoji)}
                                     className={clsx(
@@ -275,6 +279,9 @@ const MessageItem = ({
 
                         {/* Inline add-reaction shortcut */}
                         <button
+                            aria-label="Add reaction"
+                            aria-haspopup="dialog"
+                            aria-expanded={isEmojiPickerOpen}
                             onClick={() => setIsEmojiPickerOpen(true)}
                             className="inline-flex items-center justify-center w-7 h-7 rounded-md border border-dashed border-white/5 text-white/12 hover:text-white/30 hover:border-white/8 hover:bg-white/3 transition-all duration-200"
                             title="Add reaction"
@@ -299,6 +306,9 @@ const MessageItem = ({
                         {/* Emoji Reaction Trigger */}
                         <div className="relative" ref={emojiRef}>
                             <button
+                                aria-label="Add reaction"
+                                aria-haspopup="dialog"
+                                aria-expanded={isEmojiPickerOpen}
                                 onClick={() => setIsEmojiPickerOpen((v) => !v)}
                                 className="p-1.5 rounded-md text-white/25 hover:text-brand-accent-soft hover:bg-brand-accent/8 transition-all duration-150"
                                 title="Add reaction"
@@ -319,6 +329,7 @@ const MessageItem = ({
                                         {REACTION_EMOJIS.map((emoji) => (
                                             <motion.button
                                                 key={emoji}
+                                                aria-label={`React with ${emoji}`}
                                                 whileHover={{ scale: 1.25 }}
                                                 whileTap={{ scale: 0.9 }}
                                                 onClick={() => {
@@ -338,6 +349,7 @@ const MessageItem = ({
 
                         {/* Reply */}
                         <button
+                            aria-label="Reply to message"
                             onClick={() => onReply?.(message)}
                             className="p-1.5 rounded-md text-white/25 hover:text-blue-400 hover:bg-blue-500/8 transition-all duration-150"
                             title="Reply"
@@ -351,6 +363,9 @@ const MessageItem = ({
                                 <div className="w-px h-4 bg-white/5 mx-0.5" />
                                 <div className="relative" ref={menuRef}>
                                     <button
+                                        aria-label="More options"
+                                        aria-haspopup="menu"
+                                        aria-expanded={isMenuOpen}
                                         onClick={() => setIsMenuOpen((v) => !v)}
                                         className="p-1.5 rounded-md text-white/25 hover:text-white/60 hover:bg-white/5 transition-all duration-150"
                                         title="More options"
