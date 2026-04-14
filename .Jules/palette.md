@@ -1,3 +1,3 @@
-## 2024-04-10 - Stateful Icon-Only Actions Lack ARIA Metadata
-**Learning:** Found an accessibility issue pattern specific to this app's components: hover-based toolbars with icon-only actions (like in `MessageItem.tsx`) frequently lack `aria-label` attributes and missing stateful ARIA properties. This severely impacts screen reader users who cannot visually interpret the icon or know if a popup menu is currently open.
-**Action:** When adding `aria-label` to icon-only buttons, also verify if the button toggles a state (like opening a menu or picker). Always add `aria-expanded`, `aria-haspopup`, and `aria-pressed` as appropriate to ensure the full interaction context is accessible.
+## 2024-04-06 - Missing ARIA Labels on Hover Toolbars
+**Learning:** In the `ais-site` components, particularly `MessageItem.tsx`, hover-based toolbars with icon-only actions (like "Reply", "Add Reaction", "More Options") frequently lack `aria-label` and `aria-expanded` attributes, making them inaccessible to screen readers.
+**Action:** When adding or reviewing icon-only buttons, especially in dynamic or hover-revealed toolbars, always verify that an appropriate `aria-label` is present and that stateful menus (like popovers or dropdowns) use `aria-expanded`.
