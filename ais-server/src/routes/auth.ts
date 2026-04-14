@@ -8,7 +8,7 @@ import { checkUserAuth } from "../utils.js";
 const authRouter = new Hono();
 
 authRouter.post("/register", async (c) => {
-  const body = await c.req.parseBody();
+  const body = await c.req.json();
   const schema = z.object({
     name: z.string().min(3),
     email: z.email(),
@@ -46,7 +46,8 @@ authRouter.post("/register", async (c) => {
     path: "/",
     maxAge: 60 * 60 * 24 * 7, // 1 week
     httpOnly: true,
-    sameSite: "lax",
+    sameSite: Bun.env.ENV === "production" ? "none" : "lax",
+    secure: Bun.env.ENV === "production",
   });
 
   return c.json({
@@ -97,7 +98,8 @@ authRouter.post("/login", async (c) => {
     path: "/",
     maxAge: 60 * 60 * 24 * 7, // 1 week
     httpOnly: true,
-    sameSite: "lax",
+    sameSite: Bun.env.ENV === "production" ? "none" : "lax",
+    secure: Bun.env.ENV === "production",
   });
 
   return c.json({
@@ -127,6 +129,18 @@ authRouter.get("/me", async (c) => {
     userName: user.name,
     userId: user._id
   });
+});
+
+authRouter.post("/logout", async (c) => {
+  setCookie(c, "user_auth", "", {
+    path: "/",
+    maxAge: 0,
+    httpOnly: true,
+    sameSite: Bun.env.ENV === "production" ? "none" : "lax",
+    secure: Bun.env.ENV === "production",
+  });
+
+  return c.json({ msg: "Logged out successfully" });
 });
 
 export default authRouter;

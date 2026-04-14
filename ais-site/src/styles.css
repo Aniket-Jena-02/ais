@@ -1,4 +1,208 @@
-@import url("https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=Manrope:wght@400;500;600;700;800&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,100;9..144,300;9..144,500;9..144,700;9..144,900&family=Manrope:wght@300;400;500;600;700;800&display=swap");
 @import "tailwindcss";
+
+/* @plugin "daisyui" {
+  themes: sunset --default;
+} */
+
 @plugin "@tailwindcss/typography";
-@plugin "daisyui";
+@source "../node_modules/tw-animate/animate.css";
+
+:root {
+  color-scheme: dark;
+}
+
+html {
+  background-color: var(--color-brand-dark);
+}
+
+body {
+  min-height: 100dvh;
+  background:
+    radial-gradient(circle at top, rgba(212, 78, 40, 0.08), transparent 32rem),
+    radial-gradient(circle at bottom right, rgba(242, 106, 69, 0.06), transparent 28rem),
+    var(--color-brand-dark);
+  color: rgba(255, 255, 255, 0.92);
+}
+
+a,
+button,
+input,
+textarea {
+  -webkit-tap-highlight-color: transparent;
+}
+
+:where(a, button, summary, [role="button"], [tabindex]):focus-visible {
+  outline: none;
+  box-shadow:
+    0 0 0 1px rgba(212, 78, 40, 0.55),
+    0 0 0 4px rgba(212, 78, 40, 0.14);
+}
+
+::selection {
+  background-color: rgba(212, 78, 40, 0.24);
+  color: #fff;
+}
+
+@layer utilities {
+  .scrollbar-hide {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+
+  .page-fade-mask {
+    position: relative;
+  }
+
+  .page-fade-mask::before,
+  .page-fade-mask::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    right: 0;
+    height: 3rem;
+    pointer-events: none;
+    z-index: 10;
+  }
+
+  .page-fade-mask::before {
+    top: 0;
+    background: linear-gradient(to bottom, rgba(10, 9, 8, 0.95), rgba(10, 9, 8, 0));
+  }
+
+  .page-fade-mask::after {
+    bottom: 0;
+    background: linear-gradient(to top, rgba(10, 9, 8, 0.92), rgba(10, 9, 8, 0));
+  }
+}
+
+@theme {
+  --font-serif: "Fraunces", "serif";
+  --font-sans: "Manrope", "sans-serif";
+
+  --color-brand-dark: #0A0908;
+  /* Deep warm black */
+  --color-brand-muted: #1C1917;
+  /* Warm surface grey */
+  --color-brand-accent: #D44E28;
+  /* Editorial Burnt Vermilion */
+  --color-brand-accent-soft: #F26A45;
+  --color-brand-surface: #141210;
+  /* Subtle warm elevation */
+
+  --animate-blob: blob 7s infinite;
+  --animate-float: float 6s ease-in-out infinite;
+  --animate-shimmer: shimmer 2s linear infinite;
+  --animate-gradient: gradient 8s ease infinite;
+}
+
+@keyframes blob {
+  0% {
+    transform: translate(0, 0) scale(1);
+  }
+
+  33% {
+    transform: translate(30px, -50px) scale(1.1);
+  }
+
+  66% {
+    transform: translate(-20px, 20px) scale(0.9);
+  }
+
+  100% {
+    transform: translate(0, 0) scale(1);
+  }
+}
+
+@keyframes float {
+
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+
+  50% {
+    transform: translateY(-20px);
+  }
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+@keyframes gradient {
+
+  0%,
+  100% {
+    background-position: 0% 50%;
+  }
+
+  50% {
+    background-position: 100% 50%;
+  }
+}
+
+/* Reduced motion: disable all animations & transitions */
+@media (prefers-reduced-motion: reduce) {
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Animation delay utilities */
+.animation-delay-2000 {
+  animation-delay: 2s;
+}
+
+.animation-delay-4000 {
+  animation-delay: 4s;
+}
+
+/* Gradient text utility */
+.text-gradient {
+  background-clip: text;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+/* Noise overlay */
+.noise-overlay::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.03'/%3E%3C/svg%3E");
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* Scroll-to-message highlight flash */
+@keyframes message-flash {
+  0% {
+    background-color: rgba(212, 78, 40, 0.12);
+  }
+
+  100% {
+    background-color: transparent;
+  }
+}
+
+.message-highlight {
+  animation: message-flash 1.5s ease-out forwards;
+  border-radius: 0.5rem;
+}

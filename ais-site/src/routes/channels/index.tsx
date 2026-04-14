@@ -1,46 +1,76 @@
 import MainLayout from "#/layouts/MainLayout";
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, redirect } from "@tanstack/react-router";
 import { Hash } from "lucide-react";
 
-export const Route = createFileRoute("/channels/")({ component: Component });
+export const Route = createFileRoute("/channels/")({
+  head: () => ({
+    title: "Ether Chat | Channels",
+    meta: [
+      { property: "og:title", content: "Ether Chat | Channels" },
+      { property: "og:description", content: "Ether Chat" },
+      { property: "og:image", content: "/favicon.png" },
+    ],
+  }),
+  component: Component,
+  beforeLoad: async () => {
+    try {
+      const res = await fetch(`${import.meta.env.VITE_API}/auth/me`, {
+        credentials: "include",
+      });
+      if (!res.ok) throw new Error("Unauthorized");
+    } catch {
+      throw redirect({ to: "/login" });
+    }
+  },
+});
 
 function Component() {
   return (
     <MainLayout>
-      <div className="h-full flex items-center justify-center p-8 bg-base-100 relative overflow-hidden">
-        {/* Subtle background gradient */}
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,rgba(var(--p),0.03),transparent_50%)] pointer-events-none" />
+      <div className="relative flex h-full items-center justify-center overflow-hidden bg-brand-dark p-8">
+        <div className="pointer-events-none absolute inset-0">
+          <div className="absolute left-1/4 top-12 h-64 w-64 rounded-full bg-brand-accent/8 blur-[120px]" />
+          <div className="absolute bottom-0 right-8 h-80 w-80 rounded-full bg-brand-accent-soft/6 blur-[140px]" />
+        </div>
 
-        <div className="text-center max-w-2xl relative z-10 animate-in fade-in zoom-in duration-700">
-          <div className="flex justify-center mb-6">
-            <div className="bg-base-200/50 p-6 rounded-full border border-base-content/5 shadow-inner">
-              <Hash size={48} className="text-base-content/20" />
+        <div className="relative z-10 max-w-2xl text-center animate-in fade-in zoom-in duration-700">
+          <div className="mb-8 inline-flex items-center gap-2 rounded-full border border-white/8 bg-white/4 px-4 py-2 text-[10px] font-black uppercase tracking-[0.18em] text-white/40">
+            <span className="h-2 w-2 rounded-full bg-brand-accent shadow-[0_0_10px_rgba(212,78,40,0.45)]" />
+            Workspace Ready
+          </div>
+
+          <div className="flex justify-center mb-10">
+            <div className="flex flex-col items-center justify-center h-full text-white/10 animate-in fade-in zoom-in duration-1000">
+              <div className="bg-white/2 p-5 rounded-full mb-8 border border-white/5 shadow-inner">
+                <Hash size={64} />
+              </div>
+
             </div>
           </div>
-          
-          <h2 className="text-3xl font-bold mb-4 tracking-tight text-base-content/80">
+
+          <h2 className="text-4xl font-black mb-4 tracking-tight text-white font-serif text-balance">
             Welcome to Dashboard
           </h2>
-          <p className="text-base-content/50 mb-8 font-medium">
-            Select a channel from the sidebar to start chatting or create a new one.
+          <p className="text-white/30 mb-12 font-medium max-w-md mx-auto leading-relaxed text-balance">
+            Select a channel from the sidebar to start chatting, or use the plus button to create a new space for your team.
           </p>
 
-          <div className="bg-base-200/60 backdrop-blur-md rounded-2xl border border-base-content/5 shadow-xl p-8 text-left max-w-md mx-auto">
-             <h3 className="font-bold text-lg mb-4 text-base-content/80">Getting Started</h3>
-             <ul className="space-y-4">
-               <li className="flex items-center gap-4 group">
-                 <div className="w-8 h-8 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold text-sm shrink-0 shadow-sm group-hover:scale-110 group-hover:bg-primary group-hover:text-primary-content transition-all">1</div>
-                 <span className="text-sm font-medium text-base-content/70">Create or join a channel using the sidebar</span>
-               </li>
-               <li className="flex items-center gap-4 group">
-                 <div className="w-8 h-8 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold text-sm shrink-0 shadow-sm group-hover:scale-110 group-hover:bg-primary group-hover:text-primary-content transition-all">2</div>
-                 <span className="text-sm font-medium text-base-content/70">Invite members to your channel</span>
-               </li>
-               <li className="flex items-center gap-4 group">
-                 <div className="w-8 h-8 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold text-sm shrink-0 shadow-sm group-hover:scale-110 group-hover:bg-primary group-hover:text-primary-content transition-all">3</div>
-                 <span className="text-sm font-medium text-base-content/70">Start messaging seamlessly in real-time</span>
-               </li>
-             </ul>
+          <div className="bg-brand-surface/40 backdrop-blur-md rounded-2xl border border-white/5 ring-1 ring-white/4 shadow-2xl p-10 text-left max-w-md mx-auto">
+            <h3 className="font-black text-[12px] uppercase tracking-[0.2em] mb-6 text-white/40">Getting Started</h3>
+            <ul className="space-y-6">
+              <li className="flex items-center gap-5 group">
+                <div className="w-9 h-9 rounded-full bg-brand-accent/10 text-brand-accent flex items-center justify-center font-black text-sm shrink-0 shadow-lg shadow-brand-accent/5 group-hover:scale-110 group-hover:bg-brand-accent group-hover:text-white transition-all duration-300">1</div>
+                <span className="text-[14px] font-medium text-white/60 leading-tight">Create or join a channel using the sidebar</span>
+              </li>
+              <li className="flex items-center gap-5 group">
+                <div className="w-9 h-9 rounded-full bg-brand-accent/10 text-brand-accent flex items-center justify-center font-black text-sm shrink-0 shadow-lg shadow-brand-accent/5 group-hover:scale-110 group-hover:bg-brand-accent group-hover:text-white transition-all duration-300">2</div>
+                <span className="text-[14px] font-medium text-white/60 leading-tight">Invite members to your channel and build your community</span>
+              </li>
+              <li className="flex items-center gap-5 group">
+                <div className="w-9 h-9 rounded-full bg-brand-accent/10 text-brand-accent flex items-center justify-center font-black text-sm shrink-0 shadow-lg shadow-brand-accent/5 group-hover:scale-110 group-hover:bg-brand-accent group-hover:text-white transition-all duration-300">3</div>
+                <span className="text-[14px] font-medium text-white/60 leading-tight">Start messaging seamlessly with ultra-low latency</span>
+              </li>
+            </ul>
           </div>
         </div>
       </div>

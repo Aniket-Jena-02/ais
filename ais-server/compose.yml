@@ -20,6 +20,23 @@ services:
     networks:
       - ais_network
 
+  server:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: ais_server
+    ports:
+      - "3000:3000"
+    environment:
+      - MONGO_URI=mongodb://root:root@db:27017/ais_db?authSource=admin
+      - REDIS_URI=redis://cache:6379
+      - JWT_SECRET=secret
+    depends_on:
+      - db
+      - cache
+    networks:
+      - ais_network
+
 volumes:
   ais_db:
   ais_cache:
