@@ -16,7 +16,7 @@ const MainLayout = ({ children }: MainLayoutProps) => {
 
       <UserChannels />
 
-      <div className="relative z-10 flex min-w-0 flex-1 flex-col overflow-hidden">
+      <div className="relative flex min-w-0 flex-1 flex-col overflow-hidden">
         <div className="pointer-events-none absolute inset-y-0 left-0 w-px bg-linear-to-b from-transparent via-white/10 to-transparent" />
         <main className="relative flex-1 overflow-hidden">
           {children}

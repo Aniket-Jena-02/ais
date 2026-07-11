@@ -82,41 +82,41 @@ export default function MembersPanel({ channelId, isOpen, socket, isAdmin = fals
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: 24 }}
             transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
-            className="fixed inset-y-0 right-0 z-30 flex h-full w-[20rem] max-w-[calc(100vw-1rem)] flex-col overflow-hidden border-l border-white/4 bg-brand-surface/35 backdrop-blur-xl lg:static lg:z-20 lg:max-w-none lg:shrink-0 lg:w-72"
+            className="fixed inset-y-0 right-0 z-30 flex h-full w-72 max-w-[calc(100vw-1rem)] flex-col overflow-hidden border-l border-white/4 bg-brand-surface/35 backdrop-blur-xl lg:static lg:z-20 lg:max-w-none lg:shrink-0 lg:w-60"
           >
             {/* Header */}
-            <div className="sticky top-0 flex h-16 shrink-0 items-center justify-between border-b border-white/4 bg-brand-surface/45 px-5 backdrop-blur-md">
+            <div className="sticky top-0 flex h-12 shrink-0 items-center justify-between border-b border-white/4 bg-brand-surface/45 px-3 backdrop-blur-md">
               <div>
-                <h3 className="text-[10px] font-black uppercase tracking-[0.25em] text-white/40">
+                <h3 className="text-[9px] font-black uppercase tracking-[0.25em] text-white/40">
                   Members
                 </h3>
-                <p className="mt-1 text-[11px] font-medium text-white/25">
+                <p className="mt-0.5 text-[10px] font-medium text-white/25">
                   {members?.length ?? 0} total{onlineMembers.length > 0 ? ` • ${onlineMembers.length} online` : ""}
                 </p>
               </div>
               <button
                 onClick={onClose}
-                className="rounded-xl border border-transparent p-2 text-white/35 transition-all duration-200 hover:border-white/6 hover:bg-white/5 hover:text-white/70"
+                className="rounded-lg border border-transparent p-1.5 text-white/35 transition-all duration-200 hover:border-white/6 hover:bg-white/5 hover:text-white/70"
                 aria-label="Close member list"
                 title="Close member list"
               >
-                <X size={15} />
+                <X size={13} />
               </button>
             </div>
 
             {/* List Area */}
-            <div className="flex-1 overflow-y-auto px-4 py-6 scrollbar-hide">
+            <div className="flex-1 overflow-y-auto px-3 py-4 scrollbar-hide">
               {isLoading || !members ? (
-                <div className="flex h-40 flex-col items-center justify-center opacity-30">
-                  <Hash size={32} className="mt-10 animate-pulse text-white" />
+                <div className="flex h-32 flex-col items-center justify-center opacity-30">
+                  <Hash size={26} className="mt-8 animate-pulse text-white" />
                 </div>
               ) : members.length === 0 ? (
-                <div className="flex h-40 flex-col items-center justify-center px-6 text-center">
-                  <div className="mb-4 rounded-full border border-white/6 bg-white/4 p-3">
-                    <User size={20} className="text-white/30" />
+                <div className="flex h-32 flex-col items-center justify-center px-5 text-center">
+                  <div className="mb-3 rounded-full border border-white/6 bg-white/4 p-2.5">
+                    <User size={17} className="text-white/30" />
                   </div>
-                  <p className="text-sm font-semibold text-white/45">No members yet</p>
-                  <p className="mt-1 text-xs text-white/22">Invite people to see presence and access here.</p>
+                  <p className="text-[13px] font-semibold text-white/45">No members yet</p>
+                  <p className="mt-1 text-[11px] text-white/22">Invite people to see presence and access here.</p>
                 </div>
               ) : (
                 <motion.div
@@ -126,12 +126,12 @@ export default function MembersPanel({ channelId, isOpen, socket, isAdmin = fals
                     visible: { transition: { staggerChildren: 0.05, delayChildren: 0.1 } },
                     hidden: {}
                   }}
-                  className="space-y-10"
+                  className="space-y-7"
                 >
                   {/* Online Group */}
                   {onlineMembers.length > 0 && (
                     <div>
-                      <h4 className="text-[9px] font-bold uppercase tracking-[0.3em] text-white/20 mb-4 px-2">
+                      <h4 className="text-[8px] font-bold uppercase tracking-[0.3em] text-white/20 mb-3 px-1.5">
                         Online — {onlineMembers.length}
                       </h4>
                       <div className="space-y-0.5">
@@ -145,7 +145,7 @@ export default function MembersPanel({ channelId, isOpen, socket, isAdmin = fals
                   {/* Offline Group */}
                   {offlineMembers.length > 0 && (
                     <div>
-                      <h4 className="text-[9px] font-bold uppercase tracking-[0.3em] text-white/20 mb-4 px-2">
+                      <h4 className="text-[8px] font-bold uppercase tracking-[0.3em] text-white/20 mb-3 px-1.5">
                         Offline — {offlineMembers.length}
                       </h4>
                       <div className="space-y-0.5">
@@ -226,11 +226,11 @@ function MemberItem({ member, isAdmin, currentUserId, onKick }: {
         hidden: { opacity: 0, x: 12 },
         visible: { opacity: 1, x: 0, transition: { type: "spring", stiffness: 300, damping: 24 } }
       }}
-      className={`group flex items-center gap-3 px-2 py-2 rounded-xl hover:bg-white/4 transition-all duration-300 cursor-default ${!isOnline ? "opacity-40 hover:opacity-80" : ""}`}
+      className={`group flex items-center gap-2.5 px-1.5 py-1.5 rounded-lg hover:bg-white/4 transition-all duration-300 cursor-default ${!isOnline ? "opacity-40 hover:opacity-80" : ""}`}
     >
       <div className="relative shrink-0">
-        <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-[11px] font-black group-hover:scale-[1.15] group-hover:-rotate-3 transition-transform duration-500 ring-1 ring-inset ring-white/10 ${colorClass}`}>
-          {member.name ? member.name.charAt(0).toUpperCase() : <User size={14} />}
+        <div className={`w-7 h-7 rounded-md flex items-center justify-center text-[10px] font-black group-hover:scale-[1.15] group-hover:-rotate-3 transition-transform duration-500 ring-1 ring-inset ring-white/10 ${colorClass}`}>
+          {member.name ? member.name.charAt(0).toUpperCase() : <User size={12} />}
         </div>
         {/* Online pip */}
         <motion.div
@@ -240,18 +240,18 @@ function MemberItem({ member, isAdmin, currentUserId, onKick }: {
             boxShadow: isOnline ? "0 0 8px rgba(16,185,129,0.5)" : "none",
           }}
           transition={{ duration: 0.4 }}
-          className="absolute -bottom-1 -right-1 w-2.5 h-2.5 rounded-full border-[2.5px] border-brand-dark"
+          className="absolute -bottom-1 -right-1 w-2 h-2 rounded-full border-2 border-brand-dark"
         />
       </div>
 
       <div className="flex flex-col min-w-0 flex-1">
         <div className="flex items-center gap-1.5 min-w-0">
-          <span className="text-xs font-black tracking-tight text-white/80 truncate">
+          <span className="text-[11px] font-black tracking-tight text-white/80 truncate">
             {member.name}
           </span>
           {member.role === "admin" && (
-            <span className="text-amber-400 bg-amber-500/10 p-[3px] rounded shrink-0" title="Admin">
-              <Crown size={10} strokeWidth={3} />
+            <span className="text-amber-400 bg-amber-500/10 p-0.5 rounded shrink-0" title="Admin">
+              <Crown size={9} strokeWidth={3} />
             </span>
           )}
         </div>
@@ -262,7 +262,7 @@ function MemberItem({ member, isAdmin, currentUserId, onKick }: {
           className="opacity-0 group-hover:opacity-100 p-1 rounded-md text-white/20 hover:text-red-400 hover:bg-red-500/10 transition-all shrink-0"
           title={`Remove ${member.name}`}
         >
-          <X size={13} />
+          <X size={12} />
         </button>
       )}
     </motion.div>

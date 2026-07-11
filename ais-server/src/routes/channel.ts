@@ -6,6 +6,8 @@ import { LastReadModel } from "../models/last-read-model.js";
 import { MessageModel } from "../models/message-model.js";
 import { UserModel } from "../models/user-model.js";
 import { onlineUsersList, io } from "../sockets.js";
+import { gcs } from "../utils.js";
+import sharp from "sharp";
 
 const channelRouter = new Hono<AuthEnv>();
 
@@ -143,9 +145,10 @@ channelRouter.get("/:id/messages", async (c) => {
     .select({
       content: 1,
       createdAt: 1,
-      updatedAt: 1,
+      isEdited: 1,
       reactions: 1,
       replyTo: 1,
+      file: 1,
     });
 
   // Return in chronological order
@@ -395,6 +398,7 @@ channelRouter.patch("/messages/:msgId", async (c) => {
   }
 
   message.content = result.data.content;
+  message.set('isEdited', true);
   await message.save();
 
   // Broadcast to all channel members in real-time
@@ -402,14 +406,14 @@ channelRouter.patch("/messages/:msgId", async (c) => {
     io.to(message.channelId.toString()).emit("message_edited", {
       messageId: msgId,
       content: message.content,
-      updatedAt: message.updatedAt,
+      isEdited: true,
     });
   }
 
   return c.json({
     msg: "Message edited successfully",
     content: message.content,
-    updatedAt: message.updatedAt,
+    isEdited: true,
   });
 })
 
@@ -585,6 +589,69 @@ channelRouter.post("/messages/:msgId/react", async (c) => {
     msg: "Reaction updated",
     reactions: message.reactions,
   });
+});
+
+channelRouter.post("/:id/upload", async (c) => {
+  const user = c.get("user");
+  const { id } = c.req.param();
+
+  const isMember = await ChannelModel.exists({
+    _id: id,
+    members: user.id,
+  });
+  if (!isMember) {
+    c.status(403);
+    return c.json({
+      msg: "User not authorized to upload to this channel",
+    });
+  }
+
+  const body = await c.req.parseBody();
+  const file = body["file"]
+
+  const schema = z.file()
+    .max(10 * 1024 * 1024, "File size must not exceed 10MB")
+    .min(1, "File size is too small")
+
+  const { success, error, data } = schema.safeParse(file)
+
+  if (!success) {
+    c.status(400);
+    return c.json({
+      msg: error.message,
+    });
+  }
+
+  const ext = data.name.split(".").pop() || "bin"
+  const filePath = `uploads/${id}/${user.id}/${Date.now()}-${data.name}`
+
+  let webp = await sharp(Buffer.from(await data.arrayBuffer()))
+    .webp({ quality: 80 })
+    .toBuffer()
+
+  try {
+    // Write the file directly to GCS via Bun's S3-compatible client
+    await gcs.write(filePath, webp, {
+      type: "image/webp",
+    })
+
+    // Construct the public URL for the uploaded file
+    const bucketName = Bun.env.GCS_BUCKET
+    const publicUrl = `https://storage.googleapis.com/${bucketName}/${filePath}`
+
+    return c.json({
+      url: publicUrl,
+      name: data.name,
+      type: data.type,
+      size: data.size,
+    });
+  } catch (err) {
+    console.error("GCS upload failed:", err);
+    c.status(500);
+    return c.json({
+      msg: "File upload failed",
+    });
+  }
 });
 
 export default channelRouter;

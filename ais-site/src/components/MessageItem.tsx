@@ -1,8 +1,22 @@
-import { MoreHorizontal, Reply, User, Crown, Pencil, Trash2, Check, X, SmilePlus } from "lucide-react"
+import { MoreHorizontal, Reply, User, Crown, Pencil, Trash2, SmilePlus, FileDown } from "lucide-react"
 import { format, isValid } from "date-fns"
 import { memo, useState, useRef, useEffect } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import clsx from "clsx"
+import { createPortal } from "react-dom"
+import { useEditMode } from "#/stores/message.store"
+
+const formatFileSize = (bytes: number) => {
+    if (bytes < 1024) return `${bytes} B`
+    const units = ["KB", "MB", "GB"]
+    let value = bytes / 1024
+    let unitIndex = 0
+    while (value >= 1024 && unitIndex < units.length - 1) {
+        value /= 1024
+        unitIndex += 1
+    }
+    return `${value >= 10 ? Math.round(value) : value.toFixed(1)} ${units[unitIndex]}`
+}
 
 export interface Reaction {
     emoji: string
@@ -22,13 +36,19 @@ export interface Message {
     _id: string
     content: string
     createdAt: string
-    updatedAt?: string
+    isEdited?: boolean
     author: {
         _id: string
         name: string
     }
     reactions?: Reaction[]
     replyTo?: ReplyTo | null
+    file?: {
+        name: string
+        type: string
+        size: number
+        url: string
+    }
 }
 
 interface MessageItemProps {
@@ -59,14 +79,13 @@ const MessageItem = ({
     onScrollToMessage,
 }: MessageItemProps) => {
     const [isMenuOpen, setIsMenuOpen] = useState(false)
-    const [isEditing, setIsEditing] = useState(false)
-    const [editContent, setEditContent] = useState(message.content)
-    const [isSaving, setIsSaving] = useState(false)
     const [isDeleting, setIsDeleting] = useState(false)
     const [isEmojiPickerOpen, setIsEmojiPickerOpen] = useState(false)
-    const editInputRef = useRef<HTMLTextAreaElement>(null)
+
     const menuRef = useRef<HTMLDivElement>(null)
     const emojiRef = useRef<HTMLDivElement>(null)
+
+    const { enableEditMode, disableEditMode, msgId, editMode } = useEditMode()
 
     // Close menu on outside click
     useEffect(() => {
@@ -82,28 +101,9 @@ const MessageItem = ({
         return () => document.removeEventListener("mousedown", handleClick)
     }, [isMenuOpen, isEmojiPickerOpen])
 
-    // Focus edit input when entering edit mode
-    useEffect(() => {
-        if (isEditing && editInputRef.current) {
-            editInputRef.current.focus()
-            editInputRef.current.selectionStart = editInputRef.current.value.length
-        }
-    }, [isEditing])
-
-    const handleEditSubmit = async () => {
-        if (!onEdit || editContent.trim() === message.content || !editContent.trim()) {
-            setIsEditing(false)
-            setEditContent(message.content)
-            return
-        }
-        setIsSaving(true)
-        try {
-            await onEdit(message._id, editContent.trim())
-            setIsEditing(false)
-        } finally {
-            setIsSaving(false)
-        }
-    }
+    // Explicit Boolean() coercion so this can never leak a non-boolean
+    // (e.g. an empty array or 0) into the `{hasReactions && (...)}` check.
+    const hasReactions = Boolean(message.reactions && message.reactions.length > 0)
 
     const handleDeleteConfirm = async () => {
         if (!onDelete) return
@@ -112,17 +112,6 @@ const MessageItem = ({
             await onDelete(message._id)
         } finally {
             setIsDeleting(false)
-        }
-    }
-
-    const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-        if (e.key === "Enter" && !e.shiftKey) {
-            e.preventDefault()
-            handleEditSubmit()
-        }
-        if (e.key === "Escape") {
-            setIsEditing(false)
-            setEditContent(message.content)
         }
     }
 
@@ -140,282 +129,305 @@ const MessageItem = ({
     const colorClass = colors[colorIndex]
 
     const EDIT_WINDOW_MS = 15 * 60 * 1000
-    const isEdited = !!(message.updatedAt && new Date(message.updatedAt).getTime() - new Date(message.createdAt).getTime() > 1000)
+    const isEdited = !!message.isEdited
     const isWithinEditWindow = Date.now() - new Date(message.createdAt).getTime() < EDIT_WINDOW_MS
 
     const canEdit = isCurrentUser && !!onEdit && isWithinEditWindow
     const canDelete = (isCurrentUser || isAdmin) && !!onDelete
     const showActions = canEdit || canDelete
 
-    const hasReactions = message.reactions && message.reactions.length > 0
-
-    return (
-        <div
-            className={clsx(
-                "group relative flex gap-4 px-6 md:px-8 hover:bg-white/1.5 transition-colors animate-in slide-in-from-bottom-1 duration-300 fill-mode-both",
-                consecutive ? "py-[3px] mt-0" : "pt-2 pb-[3px] mt-5"
-            )}
-        >
-            {/* Left Gutter: Avatar */}
-            <div className="shrink-0 w-10 flex flex-col items-center">
-                {!consecutive && (
-                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-[15px] font-black shadow-lg ring-1 ring-inset ${colorClass} transition-transform group-hover:scale-105 duration-300`}>
-                        {message.author?.name ? message.author.name.charAt(0).toUpperCase() : <User size={18} />}
-                    </div>
-                )}
-            </div>
-
-            {/* Content Area */}
-            <div className="flex-1 min-w-0 flex flex-col justify-start relative">
-
-                {/* ─── Reply Quote Block ─── */}
-                {message.replyTo && (
+    const contentNode = (
+        <>
+            {/* ─── Reply Quote Block ─── */}
+            {message.replyTo && (
+                <div className="pl-11">
                     <button
-                        aria-label={`Scroll to replied message by ${message.replyTo.author?.name || "Unknown"}`}
                         onClick={() => message.replyTo && onScrollToMessage?.(message.replyTo._id)}
-                        className="mb-2 pl-3 py-1.5 border-l-2 border-brand-accent/30 rounded-r-md bg-white/2 max-w-md text-left cursor-pointer hover:bg-white/4 transition-colors duration-150 block"
+                        className="mb-1 flex items-center gap-1.5 pl-2 py-0.5 border-l-2 border-brand-accent/30 bg-transparent rounded-r-md max-w-md text-left cursor-pointer hover:bg-white/4 transition-colors duration-150"
                         aria-label={`Scroll to reply from ${message.replyTo.author?.name || "Unknown"}`}
                     >
-                        <div className="flex items-center gap-1.5 mb-0.5">
-                            <Reply size={10} className="text-brand-accent/50 shrink-0" />
-                            <span className="text-[11px] font-black tracking-tight text-brand-accent/60">{message.replyTo.author?.name || "Unknown"}</span>
+                        <div className="flex items-center gap-1 shrink-0">
+                            <Reply size={9} className="text-brand-accent/50" />
+                            <span className="text-[10px] font-black tracking-tight text-brand-accent/60">{message.replyTo.author?.name || "Unknown"}</span>
                         </div>
-                        <p className="text-[12px] text-white/30 leading-snug truncate font-medium">{message.replyTo.content}</p>
+                        <span className="text-[10px] text-white/30 truncate font-medium border-l border-white/10 pl-1.5">{message.replyTo.content}</span>
                     </button>
-                )}
+                </div>
+            )}
 
-                {!consecutive && (
-                    <div className="flex items-baseline gap-3 mb-1">
-                        <span className="font-black text-[15px] text-white tracking-tight cursor-pointer flex items-baseline gap-1.5 min-w-0">
-                            <span className="truncate hover:underline">{message.author?.name || "Unknown User"}</span>
-                            {isAdmin && (
-                                <span className="text-amber-400 bg-amber-500/10 p-0.5 rounded flex items-center justify-center -translate-y-px" title="Channel Admin">
-                                    <Crown size={12} strokeWidth={2.5} />
+            <div className="flex gap-3 relative">
+                {/* Left Gutter: Avatar */}
+                <div className="shrink-0 w-8 flex flex-col items-center">
+                    {!consecutive && (
+                        <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-[12px] font-black shadow-lg ring-1 ring-inset ${colorClass} transition-transform group-hover:scale-105 duration-300`}>
+                            {message.author?.name ? message.author.name.charAt(0).toUpperCase() : <User size={14} />}
+                        </div>
+                    )}
+                </div>
+
+                {/* Content Area */}
+                <div className="flex-1 min-w-0 flex flex-col justify-start relative">
+                    {!consecutive && (
+                        <div className="flex items-baseline gap-2 mb-0.5">
+                            <span className="font-black text-[13px] text-white tracking-tight cursor-pointer flex items-baseline gap-1 min-w-0">
+                                <span className="truncate hover:underline">{message.author?.name || "Unknown User"}</span>
+                                {isAdmin && (
+                                    <span className="text-amber-400 bg-amber-500/10 p-0.5 rounded flex items-center justify-center -translate-y-px" title="Channel Admin">
+                                        <Crown size={10} strokeWidth={2.5} />
+                                    </span>
+                                )}
+                                {isCurrentUser && <span className="text-[8px] text-brand-accent/80 font-black uppercase tracking-widest px-1 py-0.5 rounded bg-brand-accent/10 whitespace-nowrap">(you)</span>}
+                            </span>
+                            {isValid(new Date(message.createdAt)) && (
+                                <span className="text-[9px] text-white/20 font-bold uppercase tracking-widest">
+                                    {format(new Date(message.createdAt), "h:mm a")}
                                 </span>
                             )}
-                            {isCurrentUser && <span className="text-[9px] text-brand-accent/80 font-black uppercase tracking-widest px-1 py-0.5 rounded bg-brand-accent/10 whitespace-nowrap">(you)</span>}
-                        </span>
-                        {isValid(new Date(message.createdAt)) && (
-                            <span className="text-[10px] text-white/20 font-bold uppercase tracking-widest">
-                                {format(new Date(message.createdAt), "h:mm a")}
-                            </span>
-                        )}
-                    </div>
-                )}
-
-                {/* Edit mode */}
-                {isEditing ? (
-                    <div className="flex flex-col gap-2 mt-1">
-                        <textarea
-                            ref={editInputRef}
-                            value={editContent}
-                            onChange={(e) => setEditContent(e.target.value)}
-                            onKeyDown={handleKeyDown}
-                            rows={Math.min(editContent.split("\n").length + 1, 6)}
-                            className="w-full bg-brand-muted/60 border border-brand-accent/30 rounded-lg px-3 py-2 text-white/80 text-[15px] font-sans resize-none focus:outline-none focus:border-brand-accent/60 transition-colors"
-                        />
-                        <div className="flex items-center gap-2">
-                            <button
-                                onClick={handleEditSubmit}
-                                disabled={isSaving}
-                                className="px-3 py-1 rounded-md bg-brand-accent text-white text-[11px] font-black uppercase tracking-wider hover:scale-[1.04] active:scale-95 transition-all flex items-center gap-1 disabled:opacity-50"
-                            >
-                                <Check size={12} />
-                                Save
-                            </button>
-                            <button
-                                onClick={() => { setIsEditing(false); setEditContent(message.content) }}
-                                className="px-3 py-1 rounded-md text-white/40 hover:text-white/70 text-[11px] font-black uppercase tracking-wider transition-colors flex items-center gap-1"
-                            >
-                                <X size={12} />
-                                Cancel
-                            </button>
-                            <span className="text-[10px] text-white/20 ml-1">↵ save · esc cancel</span>
                         </div>
-                    </div>
-                ) : (
-                    <div className="text-white/70 text-[15px] leading-relaxed font-sans whitespace-pre-wrap">
-                        {message.content}
+                    )}
+
+                    <div className="text-white/70 text-[13px] leading-relaxed font-sans whitespace-pre-wrap">
+                        {!message.file?.url && message.content}
                         {isEdited && (
-                            <span className="ml-1.5 text-[10px] text-white/20 font-semibold italic tracking-wide align-baseline">(edited)</span>
+                            <span className="ml-1 text-[9px] text-white/20 font-semibold italic tracking-wide align-baseline">(edited)</span>
                         )}
                     </div>
-                )}
 
-                {/* ─── Reactions Bar ─── */}
-                {hasReactions && (
-                    <motion.div
-                        initial={{ opacity: 0, y: 4 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ duration: 0.2 }}
-                        className="flex flex-wrap items-center gap-1 mt-1.5"
-                    >
-                        {message.reactions!.map((reaction) => {
-                            const hasReacted = currentUserId && reaction.users.includes(currentUserId)
-                            return (
-                                <motion.button
-                                    key={reaction.emoji}
-                                    aria-label={`React with ${reaction.emoji}`}
-                                    aria-pressed={!!hasReacted}
-                                    whileTap={{ scale: 0.88 }}
-                                    onClick={() => onReact?.(message._id, reaction.emoji)}
-                                    className={clsx(
-                                        "inline-flex items-center gap-1.5 h-7 px-2 rounded-md text-[13px] border transition-all duration-200",
-                                        hasReacted
-                                            ? "bg-brand-accent/6 border-white/8 shadow-[0_0_6px_rgba(212,78,40,0.04)]"
-                                            : "bg-white/3 border-white/4 hover:bg-white/6 hover:border-white/8"
-                                    )}
-                                    title={`${reaction.users.length} ${reaction.users.length === 1 ? 'reaction' : 'reactions'}`}
-                                    aria-label={`Reaction ${reaction.emoji}, ${reaction.users.length} ${reaction.users.length === 1 ? 'person' : 'people'} reacted`}
-                                    aria-pressed={!!hasReacted}
+                    {/* ─── File Attachment ─── */}
+                    {message.file?.url && (
+                        <div className="mt-1.5 w-fit">
+                            {message.file.type?.startsWith("image/") ? (
+                                <a
+                                    href={`${import.meta.env.VITE_API}${message.file.url}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="block max-w-sm group/img w-fit"
                                 >
-                                    <span className="leading-none">{reaction.emoji}</span>
-                                    <span className={`text-[11px] font-black tabular-nums ${hasReacted ? 'text-brand-accent/60' : 'text-white/30'}`}>
-                                        {reaction.users.length}
-                                    </span>
-                                </motion.button>
-                            )
-                        })}
+                                    <div className="relative overflow-hidden rounded-lg border border-white/6 bg-white/2 transition-all duration-300 group-hover/img:border-white/12 group-hover/img:shadow-lg group-hover/img:shadow-black/30">
+                                        <img
+                                            src={`${import.meta.env.VITE_API}${message.file.url}`}
+                                            alt={message.file.name}
+                                            loading="eager"
+                                            className="max-h-65 w-auto object-contain rounded-lg transition-transform duration-300 group-hover/img:scale-[1.02]"
+                                        />
+                                    </div>
+                                </a>
+                            ) : (
+                                <a
+                                    href={message.file.url}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    download={message.file.name}
+                                    className="inline-flex items-center gap-2.5 px-3 py-2 rounded-lg border border-white/6 bg-white/2 hover:bg-white/5 hover:border-white/10 transition-all duration-200 max-w-sm group/file"
+                                >
+                                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-brand-accent/10 text-brand-accent transition-colors group-hover/file:bg-brand-accent/15">
+                                        <FileDown size={15} />
+                                    </div>
+                                    <div className="min-w-0 flex flex-col">
+                                        <span className="text-[12px] font-semibold text-white/70 truncate group-hover/file:text-white/90 transition-colors">
+                                            {message.file.name}
+                                        </span>
+                                        <span className="text-[9px] font-bold uppercase tracking-wider text-white/20">
+                                            {formatFileSize(message.file.size)} · {message.file.type?.split("/").pop()?.toUpperCase() || "FILE"}
+                                        </span>
+                                    </div>
+                                </a>
+                            )}
+                        </div>
+                    )}
 
-                        {/* Inline add-reaction shortcut */}
+                    {/* ─── Reactions Bar ─── */}
+                    {hasReactions && (
+                        <motion.div
+                            initial={{ opacity: 0, y: 4 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ duration: 0.2 }}
+                            className="flex flex-wrap items-center gap-1 mt-1"
+                        >
+                            {message.reactions?.map((reaction) => {
+                                const hasReacted = Boolean(currentUserId && reaction.users.includes(currentUserId))
+                                return (
+                                    <motion.button
+                                        key={reaction.emoji}
+                                        aria-pressed={hasReacted}
+                                        whileTap={{ scale: 0.88 }}
+                                        onClick={() => onReact?.(message._id, reaction.emoji)}
+                                        className={clsx(
+                                            "inline-flex items-center gap-1 h-6 px-1.5 rounded-md text-[12px] border transition-all duration-200",
+                                            hasReacted
+                                                ? "bg-brand-accent/6 border-white/8 shadow-[0_0_6px_rgba(212,78,40,0.04)]"
+                                                : "bg-white/3 border-white/4 hover:bg-white/6 hover:border-white/8"
+                                        )}
+                                        title={`${reaction.users.length} ${reaction.users.length === 1 ? 'reaction' : 'reactions'}`}
+                                        aria-label={`Reaction ${reaction.emoji}, ${reaction.users.length} ${reaction.users.length === 1 ? 'person' : 'people'} reacted`}
+                                    >
+                                        <span className="leading-none">{reaction.emoji}</span>
+                                        <span className={`text-[10px] font-black tabular-nums ${hasReacted ? 'text-brand-accent/60' : 'text-white/30'}`}>
+                                            {reaction.users.length}
+                                        </span>
+                                    </motion.button>
+                                )
+                            })}
+                            {/* Inline add-reaction shortcut */}
+                            <button
+                                aria-label="Add reaction"
+                                aria-expanded={isEmojiPickerOpen}
+                                onClick={() => setIsEmojiPickerOpen(true)}
+                                className="inline-flex items-center justify-center w-6 h-6 rounded-md border border-dashed border-white/5 text-white/12 hover:text-white/30 hover:border-white/8 hover:bg-white/3 transition-all duration-200"
+                                title="Add reaction"
+                                aria-haspopup="menu"
+                            >
+                                <SmilePlus size={12} />
+                            </button>
+                        </motion.div>
+                    )}
+                </div>
+            </div>
+
+            {/* ─── Hover Toolbar ─── */}
+            {!editMode && <div className="absolute -top-2.5 right-6 opacity-0 group-hover:opacity-100 transition-all duration-150 z-10 flex items-center gap-2.5 translate-y-1 group-hover:translate-y-0">
+                {consecutive && isValid(new Date(message.createdAt)) && (
+                    <span className="text-[8px] font-black uppercase tracking-[0.14em] text-white/10 select-none mr-1">
+                        {format(new Date(message.createdAt), "h:mm a")}
+                    </span>
+                )}
+                <div className="flex items-center gap-0.5 bg-brand-surface/95 backdrop-blur-md border border-white/6 shadow-2xl shadow-black/40 rounded-lg p-0.5">
+                    {/* Emoji Reaction Trigger */}
+                    <div className="relative" ref={emojiRef}>
                         <button
                             aria-label="Add reaction"
-                            aria-haspopup="dialog"
-                            aria-expanded={isEmojiPickerOpen}
-                            onClick={() => setIsEmojiPickerOpen(true)}
-                            className="inline-flex items-center justify-center w-7 h-7 rounded-md border border-dashed border-white/5 text-white/12 hover:text-white/30 hover:border-white/8 hover:bg-white/3 transition-all duration-200"
+                            onClick={() => setIsEmojiPickerOpen((v) => !v)}
+                            className="p-1.5 rounded-md text-white/25 hover:text-brand-accent-soft hover:bg-brand-accent/8 transition-all duration-150"
                             title="Add reaction"
-                            aria-label="Add reaction"
                             aria-haspopup="menu"
                             aria-expanded={isEmojiPickerOpen}
                         >
                             <SmilePlus size={13} />
                         </button>
-                    </motion.div>
-                )}
-            </div>
-
-            {/* ─── Hover Toolbar ─── */}
-            {!isEditing && (
-                <div className="absolute -top-3 right-8 opacity-0 group-hover:opacity-100 transition-all duration-150 z-10 flex items-center gap-3 translate-y-1 group-hover:translate-y-0">
-                    {consecutive && isValid(new Date(message.createdAt)) && (
-                        <span className="text-[9px] font-black uppercase tracking-[0.14em] text-white/10 select-none mr-1">
-                            {format(new Date(message.createdAt), "h:mm a")}
-                        </span>
-                    )}
-                    <div className="flex items-center gap-0.5 bg-brand-surface/95 backdrop-blur-md border border-white/6 shadow-2xl shadow-black/40 rounded-lg p-0.5">
-                        {/* Emoji Reaction Trigger */}
-                        <div className="relative" ref={emojiRef}>
-                            <button
-                                aria-label="Add reaction"
-                                aria-haspopup="dialog"
-                                aria-expanded={isEmojiPickerOpen}
-                                onClick={() => setIsEmojiPickerOpen((v) => !v)}
-                                className="p-1.5 rounded-md text-white/25 hover:text-brand-accent-soft hover:bg-brand-accent/8 transition-all duration-150"
-                                title="Add reaction"
-                                aria-label="Add reaction"
-                                aria-haspopup="menu"
-                                aria-expanded={isEmojiPickerOpen}
-                            >
-                                <SmilePlus size={15} />
-                            </button>
-                            <AnimatePresence>
-                                {isEmojiPickerOpen && (
-                                    <motion.div
-                                        initial={{ opacity: 0, scale: 0.92, y: 4 }}
-                                        animate={{ opacity: 1, scale: 1, y: 0 }}
-                                        exit={{ opacity: 0, scale: 0.92, y: 4 }}
-                                        transition={{ duration: 0.14, ease: [0.22, 1, 0.36, 1] }}
-                                        className="absolute right-0 bottom-full mb-2 bg-brand-surface/95 backdrop-blur-xl border border-white/6 rounded-xl shadow-2xl shadow-black/50 p-1 flex gap-0.5 z-50"
-                                    >
-                                        {REACTION_EMOJIS.map((emoji) => (
-                                            <motion.button
-                                                key={emoji}
-                                                aria-label={`React with ${emoji}`}
-                                                whileHover={{ scale: 1.25 }}
-                                                whileTap={{ scale: 0.9 }}
-                                                onClick={() => {
-                                                    onReact?.(message._id, emoji)
-                                                    setIsEmojiPickerOpen(false)
-                                                }}
-                                                className="w-9 h-9 rounded-lg flex items-center justify-center hover:bg-white/6 transition-colors duration-100 text-[18px] cursor-pointer"
-                                                aria-label={`React with ${emoji}`}
-                                            >
-                                                {emoji}
-                                            </motion.button>
-                                        ))}
-                                    </motion.div>
-                                )}
-                            </AnimatePresence>
-                        </div>
-
-                        {/* Reply */}
-                        <button
-                            aria-label="Reply to message"
-                            onClick={() => onReply?.(message)}
-                            className="p-1.5 rounded-md text-white/25 hover:text-blue-400 hover:bg-blue-500/8 transition-all duration-150"
-                            title="Reply"
-                            aria-label="Reply to message"
-                        >
-                            <Reply size={15} />
-                        </button>
-
-                        {showActions && (
-                            <>
-                                <div className="w-px h-4 bg-white/5 mx-0.5" />
-                                <div className="relative" ref={menuRef}>
-                                    <button
-                                        aria-label="More options"
-                                        aria-haspopup="menu"
-                                        aria-expanded={isMenuOpen}
-                                        onClick={() => setIsMenuOpen((v) => !v)}
-                                        className="p-1.5 rounded-md text-white/25 hover:text-white/60 hover:bg-white/5 transition-all duration-150"
-                                        title="More options"
-                                        aria-label="More options"
-                                        aria-haspopup="menu"
-                                        aria-expanded={isMenuOpen}
-                                    >
-                                        <MoreHorizontal size={15} />
-                                    </button>
-                                    <AnimatePresence>
-                                        {isMenuOpen && (
-                                            <motion.div
-                                                initial={{ opacity: 0, scale: 0.95, y: 4 }}
-                                                animate={{ opacity: 1, scale: 1, y: 0 }}
-                                                exit={{ opacity: 0, scale: 0.95, y: 4 }}
-                                                transition={{ duration: 0.14, ease: [0.22, 1, 0.36, 1] }}
-                                                className="absolute right-0 bottom-full mb-2 bg-brand-surface/95 backdrop-blur-xl border border-white/6 rounded-xl shadow-2xl shadow-black/50 overflow-hidden z-50 min-w-[140px]"
-                                            >
-                                                {canEdit && (
-                                                    <button
-                                                        onClick={() => { setIsEditing(true); setIsMenuOpen(false) }}
-                                                        className="flex items-center gap-2.5 w-full px-3.5 py-2.5 text-[12px] font-bold text-white/50 hover:text-white hover:bg-white/4 transition-all duration-150"
-                                                    >
-                                                        <Pencil size={13} />
-                                                        Edit Message
-                                                    </button>
-                                                )}
-                                                {canDelete && (
-                                                    <button
-                                                        onClick={() => { handleDeleteConfirm(); setIsMenuOpen(false) }}
-                                                        disabled={isDeleting}
-                                                        className="flex items-center gap-2.5 w-full px-3.5 py-2.5 text-[12px] font-bold text-red-400/70 hover:text-red-400 hover:bg-red-500/8 transition-all duration-150 disabled:opacity-50"
-                                                    >
-                                                        <Trash2 size={13} />
-                                                        {isDeleting ? "Deleting…" : "Delete"}
-                                                    </button>
-                                                )}
-                                            </motion.div>
-                                        )}
-                                    </AnimatePresence>
-                                </div>
-                            </>
-                        )}
+                        <AnimatePresence>
+                            {isEmojiPickerOpen && (
+                                <motion.div
+                                    initial={{ opacity: 0, scale: 0.92, y: 4 }}
+                                    animate={{ opacity: 1, scale: 1, y: 0 }}
+                                    exit={{ opacity: 0, scale: 0.92, y: 4 }}
+                                    transition={{ duration: 0.14, ease: [0.22, 1, 0.36, 1] }}
+                                    className="absolute right-0 bottom-full mb-2 bg-brand-surface/95 backdrop-blur-xl border border-white/6 rounded-xl shadow-2xl shadow-black/50 p-1 flex gap-0.5 z-50"
+                                >
+                                    {REACTION_EMOJIS.map((emoji) => (
+                                        <motion.button
+                                            key={emoji}
+                                            aria-label={`React with ${emoji}`}
+                                            whileHover={{ scale: 1.25 }}
+                                            whileTap={{ scale: 0.9 }}
+                                            onClick={() => {
+                                                onReact?.(message._id, emoji)
+                                                setIsEmojiPickerOpen(false)
+                                            }}
+                                            className="w-8 h-8 rounded-lg flex items-center justify-center hover:bg-white/6 transition-colors duration-100 text-[16px] cursor-pointer"
+                                        >
+                                            {emoji}
+                                        </motion.button>
+                                    ))}
+                                </motion.div>
+                            )}
+                        </AnimatePresence>
                     </div>
+
+                    {/* Reply */}
+                    <button
+                        aria-label="Reply to message"
+                        onClick={() => onReply?.(message)}
+                        className="p-1.5 rounded-md text-white/25 hover:text-blue-400 hover:bg-blue-500/8 transition-all duration-150"
+                        title="Reply"
+                    >
+                        <Reply size={13} />
+                    </button>
+
+                    {showActions && (
+                        <>
+                            <div className="w-px h-3.5 bg-white/5 mx-0.5" />
+                            <div className="relative" ref={menuRef}>
+                                <button
+                                    aria-label="More options"
+                                    aria-haspopup="menu"
+                                    aria-expanded={isMenuOpen}
+                                    onClick={() => setIsMenuOpen((v) => !v)}
+                                    className="p-1.5 rounded-md text-white/25 hover:text-white/60 hover:bg-white/5 transition-all duration-150"
+                                    title="More options"
+                                >
+                                    <MoreHorizontal size={13} />
+                                </button>
+                                <AnimatePresence>
+                                    {isMenuOpen && (
+                                        <motion.div
+                                            initial={{ opacity: 0, scale: 0.95, y: 4 }}
+                                            animate={{ opacity: 1, scale: 1, y: 0 }}
+                                            exit={{ opacity: 0, scale: 0.95, y: 4 }}
+                                            transition={{ duration: 0.14, ease: [0.22, 1, 0.36, 1] }}
+                                            className="absolute right-0 bottom-full mb-2 bg-brand-surface/95 backdrop-blur-xl border border-white/6 rounded-xl shadow-2xl shadow-black/50 overflow-hidden z-50 min-w-32.5"
+                                        >
+                                            {canEdit && (
+                                                <button
+                                                    onClick={() => { enableEditMode(message._id, message.content); setIsMenuOpen(false) }}
+                                                    className="flex items-center gap-2 w-full px-3 py-2 text-[11px] font-bold text-white/50 hover:text-white hover:bg-white/4 transition-all duration-150"
+                                                >
+                                                    <Pencil size={12} />
+                                                    Edit Message
+                                                </button>
+                                            )}
+                                            {canDelete && (
+                                                <button
+                                                    onClick={() => { handleDeleteConfirm(); setIsMenuOpen(false) }}
+                                                    disabled={isDeleting}
+                                                    className="flex items-center gap-2 w-full px-3 py-2 text-[11px] font-bold text-red-400/70 hover:text-red-400 hover:bg-red-500/8 transition-all duration-150 disabled:opacity-50"
+                                                >
+                                                    <Trash2 size={12} />
+                                                    {isDeleting ? "Deleting…" : "Delete"}
+                                                </button>
+                                            )}
+                                        </motion.div>
+                                    )}
+                                </AnimatePresence>
+                            </div>
+                        </>
+                    )}
                 </div>
+            </div>}
+        </>
+    )
+
+    return (
+        <>
+            {/* Backdrop and Centered Clone via Portal */}
+            {editMode && msgId === message._id && typeof document !== "undefined" && createPortal(
+                <div className="fixed inset-0 z-60 flex items-center justify-center pointer-events-none">
+                    <div
+                        className="absolute inset-0 bg-black/80 backdrop-blur-md pointer-events-auto transition-opacity duration-300 animate-in fade-in"
+                        onClick={disableEditMode}
+                    />
+                    <div className="relative z-10 w-full max-w-2xl px-4 flex justify-center pointer-events-auto">
+                        <div className="w-full bg-brand-surface/95 rounded-xl shadow-2xl shadow-black/50 ring-1 ring-white/10 p-5 backdrop-blur-xl animate-in fade-in zoom-in-95 duration-200 group">
+                            {contentNode}
+                        </div>
+                    </div>
+                </div>,
+                document.body
             )}
-        </div>
+
+            {/* Original item in flow (hidden while editing to preserve scroll position) */}
+            <div
+                className={clsx(
+                    "group flex flex-col transition-colors fill-mode-both",
+                    editMode && msgId === message._id
+                        ? "opacity-0 pointer-events-none"
+                        : clsx("relative px-4 md:px-6 hover:bg-white/1.5 animate-in slide-in-from-bottom-1 duration-300", consecutive ? "py-0.5 mt-0" : "pt-1.5 pb-0.5 mt-3.5")
+                )}
+            >
+                {contentNode}
+            </div>
+        </>
     );
+
 }
 
 MessageItem.displayName = "MessageItem"

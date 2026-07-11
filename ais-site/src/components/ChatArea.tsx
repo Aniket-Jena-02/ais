@@ -10,7 +10,7 @@ import {
     Users,
     LogOut
 } from "lucide-react"
-import MessageInput from "./MessageInput"
+import MessageInput, { type FileAttachment } from "./MessageInput"
 import MessageItem, { type Message, type Reaction } from "./MessageItem"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { format, isSameDay, isToday, isYesterday, isValid } from "date-fns"
@@ -21,6 +21,7 @@ import { toast } from "sonner"
 import ConfirmDialog from "./ConfirmDialog"
 import clsx from "clsx"
 import { AnimatePresence, motion } from "framer-motion"
+import { useEditMode } from "#/stores/message.store"
 
 interface ProcessedMessage {
     message: Message
@@ -81,6 +82,9 @@ const ChatArea = () => {
     const [isLoadingOlder, setIsLoadingOlder] = useState(false)
     const [replyingTo, setReplyingTo] = useState<Message | null>(null)
 
+    // global edit mode state
+    const { editMode, msgId, disableEditMode } = useEditMode()
+
     // current user
     const { data: userData } = useQuery({
         queryFn: async () => {
@@ -96,6 +100,13 @@ const ChatArea = () => {
     const scrollContainerRef = useRef<HTMLDivElement>(null)
     const messagesEndRef = useRef<HTMLDivElement>(null)
     const [showScrollToBottom, setShowScrollToBottom] = useState(false)
+
+    // Always holds the *current* channelId so long-lived socket callbacks
+    // (registered once in Effect 1) never close over a stale value.
+    const channelIdRef = useRef(channelId)
+    useEffect(() => {
+        channelIdRef.current = channelId
+    }, [channelId])
 
     const setChannelUnreadCount = useCallback((targetChannelId: string, unreadCount: number) => {
         queryClient.setQueryData<UserChannelItem[]>(["user-channels"], (previous) => {
@@ -119,6 +130,15 @@ const ChatArea = () => {
         setOlderMessages((prev) => prev.filter((message) => message._id !== messageId))
         setInitialMessages((prev) => prev.filter((message) => message._id !== messageId))
         setMessages((prev) => prev.filter((message) => message._id !== messageId))
+    }, [])
+
+    // Dedupe helper: several code paths (socket broadcast + optimistic ack)
+    // can try to append the same message id. Always guard on insert.
+    const appendMessageIfNew = useCallback((message: Message) => {
+        setMessages((prev) => {
+            if (prev.some((m) => m._id === message._id)) return prev
+            return [...prev, message]
+        })
     }, [])
 
     // Track hasMore from initial query
@@ -220,6 +240,7 @@ const ChatArea = () => {
         setOlderMessages([])
         setInitialMessages(cachedMessagesData?.messages ?? [])
         setMessages([])
+        setTypingUsers({})
         setHasMore(cachedMessagesData?.hasMore ?? false)
         setReplyingTo(null)
         isInitialScrollRef.current = true
@@ -227,8 +248,11 @@ const ChatArea = () => {
 
     // Effect 1: Create the socket once for the lifetime of the component.
     // This does NOT depend on channelId so switching channels never disconnects.
+    // The socket owns rejoining its room on every "connect" event (including
+    // reconnects after a network blip), always using the *current* channelId
+    // via channelIdRef rather than the value captured at socket-creation time.
     useEffect(() => {
-        const socket = io(import.meta.env.VITE_WS || `http://localhost:3000`, {
+        const socket = io(import.meta.env.VITE_WS_URL || `http://localhost:3000`, {
             transports: ["websocket"],
         })
         socketRef.current = socket
@@ -236,18 +260,23 @@ const ChatArea = () => {
         socket.on("connect", () => {
             console.log("Connected to server")
             setIsConnecting(false)
+            if (channelIdRef.current) {
+                socket.emit("join_channel", { channelId: channelIdRef.current }, (res: any) => {
+                    console.log("Joined channel response:", res)
+                })
+            }
         })
 
         socket.on("channel_message", (message: Message) => {
-            setMessages((prev) => [...prev, message])
+            appendMessageIfNew(message)
             if (message._id) {
                 markChannelAsRead(message._id)
             }
         })
 
-        socket.on("message_edited", (data: { messageId: string; content: string; updatedAt: string }) => {
+        socket.on("message_edited", (data: { messageId: string; content: string; isEdited: boolean }) => {
             const applyEdit = (msg: Message) =>
-                msg._id === data.messageId ? { ...msg, content: data.content, updatedAt: data.updatedAt } : msg
+                msg._id === data.messageId ? { ...msg, content: data.content, isEdited: data.isEdited } : msg
             updateMessageEverywhere(applyEdit)
         })
 
@@ -292,35 +321,21 @@ const ChatArea = () => {
             socket.disconnect()
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [markChannelAsRead, removeMessageEverywhere, updateMessageEverywhere])
+    }, [appendMessageIfNew, markChannelAsRead, removeMessageEverywhere, updateMessageEverywhere])
 
-    // Effect 2: Join the new channel room whenever channelId changes.
-    // Leaves the previous room automatically (socket.io leaves on re-join).
+    // Effect 2: Join the new channel room whenever channelId changes while
+    // already connected. (The initial join on a fresh/reconnected socket is
+    // handled centrally by the "connect" handler in Effect 1 above, so this
+    // effect only needs to cover the "already connected, user switched
+    // channels" case — socket.io leaves the previous room automatically.)
     useEffect(() => {
         const socket = socketRef.current
-        if (!socket) return
+        if (!socket || !socket.connected) return
 
-        setMessages([])
-        setTypingUsers({})
-
-        if (socket.connected) {
-            socket.emit("join_channel", { channelId }, (res: any) => {
-                console.log("Joined channel response:", res)
-            })
-        } else {
-            // If the socket isn't connected yet, join once it is
-            const onConnect = () => {
-                socket.emit("join_channel", { channelId }, (res: any) => {
-                    console.log("Joined channel response:", res)
-                })
-                socket.off("connect", onConnect)
-            }
-            socket.on("connect", onConnect)
-            return () => { socket.off("connect", onConnect) }
-        }
+        socket.emit("join_channel", { channelId }, (res: any) => {
+            console.log("Joined channel response:", res)
+        })
     }, [channelId])
-
-
 
     const handleEditMessage = useCallback(async (messageId: string, newContent: string) => {
         const res = await fetch(`${import.meta.env.VITE_API}/channels/messages/${messageId}`, {
@@ -334,11 +349,11 @@ const ChatArea = () => {
             toast.error(data.msg || "Failed to edit message")
             throw new Error("Edit failed")
         }
-        const data = await res.json()
-        const updatedAt = data.updatedAt || new Date().toISOString()
+        const data = await res.json() as { msg: string, content: string, isEdited: boolean }
+        toast.success(data.msg)
         // Optimistic update for the sender (others get socket event)
         const applyEdit = (m: Message) =>
-            m._id === messageId ? { ...m, content: newContent, updatedAt } : m
+            m._id === messageId ? { ...m, content: newContent, isEdited: true } : m
         updateMessageEverywhere(applyEdit)
     }, [updateMessageEverywhere])
 
@@ -415,9 +430,14 @@ const ChatArea = () => {
         navigate({ to: "/channels" })
     }
 
-
-    const handleSendMessage = (content: string) => {
+    const handleSendMessage = (content: string, file?: FileAttachment) => {
         if (!socketRef.current) return
+
+        if (editMode && msgId) {
+            handleEditMessage(msgId, content)
+            disableEditMode()
+            return
+        }
 
         const newMessage: Record<string, any> = {
             content,
@@ -425,6 +445,9 @@ const ChatArea = () => {
         }
         if (replyingTo) {
             newMessage.replyTo = replyingTo._id
+        }
+        if (file) {
+            newMessage.file = file
         }
 
         const replyData = replyingTo ? {
@@ -434,19 +457,23 @@ const ChatArea = () => {
         } : null
 
         // Emit message to server
-        socketRef.current.emit("chat_message", newMessage, (res: { status: string, error?: string, messageId?: string, replyTo?: any }) => {
+        socketRef.current.emit("chat_message", newMessage, (res: { status: string, error?: string, messageId?: string, replyTo?: any, file?: any }) => {
             if (res.status === "ERROR") {
                 console.error("Message failed:", res.error)
-            } else {
-                setMessages((prev) => [...prev, {
-                    content,
-                    _id: res.messageId!,
-                    author: { _id: userData?.userId || "", name: userData?.userName || "" },
-                    createdAt: new Date().toISOString(),
-                    replyTo: res.replyTo || replyData,
-                }])
-                markChannelAsRead(res.messageId)
+                toast.error(res.error || "Failed to send message")
+                return
             }
+            // Guarded against the server's own broadcast of this same message
+            // arriving via "channel_message" before or after this ack fires.
+            appendMessageIfNew({
+                content,
+                _id: res.messageId!,
+                author: { _id: userData?.userId || "", name: userData?.userName || "" },
+                createdAt: new Date().toISOString(),
+                replyTo: res.replyTo || replyData,
+                file: res.file || file || undefined,
+            })
+            markChannelAsRead(res.messageId)
         })
 
         // Clear reply state
@@ -459,7 +486,6 @@ const ChatArea = () => {
             socketRef.current.emit("typing", { channelId, isTyping: false })
         }
     }
-
 
     const isTypingRef = useRef(false)
 
@@ -480,10 +506,15 @@ const ChatArea = () => {
         runStopTyping()
     }
 
-    // Load older messages (cursor-based pagination)
+    // Load older messages (cursor-based pagination), preserving the user's
+    // visual scroll position by compensating for the newly inserted height.
     const loadOlderMessages = useCallback(async () => {
         const allCurrent = [...olderMessages, ...initialMessages, ...messages]
         if (allCurrent.length === 0 || !hasMore) return
+
+        const container = scrollContainerRef.current
+        const prevScrollHeight = container?.scrollHeight ?? 0
+        const prevScrollTop = container?.scrollTop ?? 0
 
         setIsLoadingOlder(true)
         try {
@@ -495,6 +526,13 @@ const ChatArea = () => {
             const data = await res.json() as { messages: Message[], hasMore: boolean }
             setOlderMessages((prev) => [...data.messages, ...prev])
             setHasMore(data.hasMore)
+
+            requestAnimationFrame(() => {
+                const el = scrollContainerRef.current
+                if (!el) return
+                const newScrollHeight = el.scrollHeight
+                el.scrollTop = prevScrollTop + (newScrollHeight - prevScrollHeight)
+            })
         } catch (err) {
             console.error("Failed to load older messages:", err)
         } finally {
@@ -545,23 +583,23 @@ const ChatArea = () => {
         <div className="relative flex h-full w-full min-w-0 overflow-hidden bg-brand-dark">
             <div className="relative flex h-full min-w-0 flex-1 flex-col overflow-hidden">
                 {/* Chat Header */}
-                <div className="sticky top-0 z-20 flex h-16 shrink-0 items-center justify-between border-b border-white/4 bg-brand-surface/55 px-4 shadow-sm backdrop-blur-xl md:px-6">
-                    <div className="flex min-w-0 items-center gap-3">
-                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-white/6 bg-white/4">
-                            <Hash size={18} className="text-white/25" />
+                <div className="sticky top-0 z-20 flex h-12 shrink-0 items-center justify-between border-b border-white/4 bg-brand-surface/55 px-3 shadow-sm backdrop-blur-xl md:px-4">
+                    <div className="flex min-w-0 items-center gap-2.5">
+                        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border border-white/6 bg-white/4">
+                            <Hash size={15} className="text-white/25" />
                         </div>
                         <div className="min-w-0 flex items-center gap-2">
-                            <h2 className="truncate text-lg font-black tracking-tight text-white font-serif">
+                            <h2 className="truncate text-sm font-bold tracking-tight text-white font-serif">
                                 {isLoading ? (
-                                    <div className="h-6 w-32 animate-pulse rounded bg-white/5" />
+                                    <div className="h-4 w-28 animate-pulse rounded bg-white/5" />
                                 ) : (
                                     channelData?.channel.name || channelId
                                 )}
                             </h2>
-                            <div className="mt-0.5 flex items-center gap-2 text-[8px] font-black uppercase tracking-[0.16em] text-white/22">
+                            <div className="flex items-center gap-2 text-[8px] font-black uppercase tracking-[0.16em] text-white/22">
                                 <span
                                     className={clsx(
-                                        "rounded-full px-2 py-0.5",
+                                        "rounded-full px-1.5 py-0.5",
                                         isConnecting ? "bg-amber-500/10 text-amber-300/80" : "bg-emerald-500/10 text-emerald-300/80"
                                     )}
                                 >
@@ -572,36 +610,36 @@ const ChatArea = () => {
                     </div>
 
                     {/* Header Actions */}
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-1.5">
                         <button
                             onClick={() => setIsMembersPanelOpen(!isMembersPanelOpen)}
                             className={clsx(
-                                "rounded-xl border p-2.5 transition-all duration-300",
+                                "rounded-lg border p-2 transition-all duration-300",
                                 isMembersPanelOpen ? "border-brand-accent/20 bg-brand-accent/10 text-brand-accent hover:bg-brand-accent/15" : "border-transparent text-white/40 hover:border-white/6 hover:bg-white/5 hover:text-white"
                             )}
                             title="Toggle Member List"
                             aria-label="Toggle member list"
                         >
-                            <Users size={16} strokeWidth={2.5} />
+                            <Users size={14} strokeWidth={2.5} />
                         </button>
                         {channelData?.isAdmin && (
                             <button
                                 onClick={() => setIsAddMemberOpen(true)}
-                                className="rounded-xl border border-transparent p-2.5 text-white/40 transition-all duration-300 hover:border-white/6 hover:bg-white/5 hover:text-white"
+                                className="rounded-lg border border-transparent p-2 text-white/40 transition-all duration-300 hover:border-white/6 hover:bg-white/5 hover:text-white"
                                 title="Add Member"
                                 aria-label="Add member"
                             >
-                                <UserPlus size={16} strokeWidth={2.5} />
+                                <UserPlus size={14} strokeWidth={2.5} />
                             </button>
                         )}
                         {!channelData?.isAdmin && channelData && (
                             <button
                                 onClick={() => setIsLeaveConfirmOpen(true)}
-                                className="rounded-xl border border-transparent p-2.5 text-white/30 transition-all duration-300 hover:border-red-500/12 hover:bg-red-500/10 hover:text-red-400"
+                                className="rounded-lg border border-transparent p-2 text-white/30 transition-all duration-300 hover:border-red-500/12 hover:bg-red-500/10 hover:text-red-400"
                                 title="Leave Channel"
                                 aria-label="Leave channel"
                             >
-                                <LogOut size={15} strokeWidth={2.5} />
+                                <LogOut size={13} strokeWidth={2.5} />
                             </button>
                         )}
                     </div>
@@ -612,20 +650,20 @@ const ChatArea = () => {
                     ref={scrollContainerRef}
                     className="page-fade-mask flex-1 overflow-y-auto scrollbar-hide"
                 >
-                    <div className="mx-auto flex h-full w-full max-w-5xl flex-col px-1 py-6 md:px-4">
+                    <div className="mx-auto flex h-full w-full max-w-5xl flex-col px-1 py-4 md:px-4">
 
                         {/* Load Earlier Messages */}
                         {hasMore && !isLoading && (
-                            <div className="sticky top-4 z-10 mb-6 flex justify-center">
+                            <div className="sticky top-3 z-10 mb-4 flex justify-center">
                                 <button
                                     onClick={loadOlderMessages}
                                     disabled={isLoadingOlder}
-                                    className="flex items-center gap-2 rounded-full border border-white/6 bg-brand-surface/85 px-4 py-2 text-[10px] font-black uppercase tracking-[0.15em] text-white/30 shadow-xl shadow-black/20 backdrop-blur-xl transition-all duration-200 hover:border-white/10 hover:bg-brand-surface hover:text-white/60 disabled:opacity-50"
+                                    className="flex items-center gap-1.5 rounded-full border border-white/6 bg-brand-surface/85 px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.15em] text-white/30 shadow-xl shadow-black/20 backdrop-blur-xl transition-all duration-200 hover:border-white/10 hover:bg-brand-surface hover:text-white/60 disabled:opacity-50"
                                 >
                                     {isLoadingOlder ? (
-                                        <Loader2 size={14} className="animate-spin" />
+                                        <Loader2 size={12} className="animate-spin" />
                                     ) : (
-                                        <ChevronUp size={14} />
+                                        <ChevronUp size={12} />
                                     )}
                                     {isLoadingOlder ? "Loading..." : "Load Earlier Messages"}
                                 </button>
@@ -633,27 +671,27 @@ const ChatArea = () => {
                         )}
 
                         {isLoading ? (
-                            <div className="flex min-h-104 flex-1 flex-col items-center justify-center text-white/10 animate-in fade-in zoom-in duration-1000">
-                                <div className="mb-8 rounded-full border border-white/5 bg-white/2 p-5 shadow-inner">
-                                    <Hash size={64} className="opacity-10 animate-pulse" />
+                            <div className="flex min-h-72 flex-1 flex-col items-center justify-center text-white/10 animate-in fade-in zoom-in duration-1000">
+                                <div className="mb-6 rounded-full border border-white/5 bg-white/2 p-4 shadow-inner">
+                                    <Hash size={40} className="opacity-10 animate-pulse" />
                                 </div>
-                                <h3 className="font-serif text-2xl font-black uppercase tracking-tight text-white/30">Loading Messages</h3>
+                                <h3 className="font-serif text-base font-black uppercase tracking-tight text-white/30">Loading Messages</h3>
                             </div>
                         ) : processedMessages.length === 0 ? (
-                            <div className="flex min-h-112 flex-1 flex-col items-center justify-center text-white/10 animate-in fade-in zoom-in duration-1000">
-                                <div className="mb-8 rounded-full border border-white/5 bg-white/2 p-5 shadow-inner">
-                                    <Hash size={64} />
+                            <div className="flex min-h-80 flex-1 flex-col items-center justify-center text-white/10 animate-in fade-in zoom-in duration-1000">
+                                <div className="mb-6 rounded-full border border-white/5 bg-white/2 p-4 shadow-inner">
+                                    <Hash size={40} />
                                 </div>
-                                <h3 className="font-serif text-2xl font-black uppercase tracking-tight text-white">Channel History Starts Here</h3>
-                                <p className="mt-4 max-w-xs text-center text-sm font-medium leading-relaxed text-white/40">
+                                <h3 className="font-serif text-lg font-black uppercase tracking-tight text-white">Channel History Starts Here</h3>
+                                <p className="mt-3 max-w-xs text-center text-xs font-medium leading-relaxed text-white/40">
                                     This is the very beginning of the <strong className="text-brand-accent-soft">#{channelData?.channel.name}</strong> history. Make it count.
                                 </p>
                                 {channelData?.isAdmin && (
                                     <button
                                         onClick={() => setIsAddMemberOpen(true)}
-                                        className="mt-8 inline-flex items-center gap-2 rounded-full border border-white/8 bg-white/4 px-5 py-2.5 text-[10px] font-black uppercase tracking-[0.16em] text-white/55 transition-all duration-300 hover:border-white/12 hover:bg-white/8 hover:text-white"
+                                        className="mt-6 inline-flex items-center gap-2 rounded-full border border-white/8 bg-white/4 px-4 py-2 text-[10px] font-black uppercase tracking-[0.16em] text-white/55 transition-all duration-300 hover:border-white/12 hover:bg-white/8 hover:text-white"
                                     >
-                                        <UserPlus size={14} />
+                                        <UserPlus size={12} />
                                         Invite Your First Member
                                     </button>
                                 )}
@@ -662,7 +700,7 @@ const ChatArea = () => {
                             processedMessages.map((item) => (
                                 <Fragment key={item.message._id}>
                                     {item.showDateSeparator && (
-                                        <div className="pointer-events-none my-10 flex items-center gap-6 px-4 opacity-40 select-none">
+                                        <div className="pointer-events-none my-6 flex items-center gap-4 px-4 opacity-40 select-none">
                                             <div className="h-px flex-1 bg-white/5"></div>
                                             <span className="text-[10px] font-black uppercase tracking-[0.2em] text-white/40">
                                                 {item.dateLabel}
@@ -687,41 +725,41 @@ const ChatArea = () => {
                                 </Fragment>
                             ))
                         )}
-                        <div ref={messagesEndRef} className="h-12" />
+                        <div ref={messagesEndRef} className="h-8" />
                     </div>
                 </div>
 
                 <AnimatePresence>
                     {showScrollToBottom && (
                         <motion.div
-                            initial={{ opacity: 0, y: 15, scale: 0.9 }}
-                            animate={{ opacity: 1, y: 0, scale: 1 }}
+                            initial={{ opacity: 0, y: 50, scale: 0.9 }}
+                            animate={{ opacity: 1, y: -10, scale: 1 }}
                             exit={{ opacity: 0, y: 15, scale: 0.9 }}
                             transition={{ type: "spring", stiffness: 450, damping: 25 }}
-                            className="pointer-events-none absolute bottom-28 right-4 z-20 md:right-8"
+                            className="pointer-events-none absolute bottom-24 right-3 z-20 md:right-6"
                         >
                             <button
                                 onClick={() => scrollToBottom("smooth")}
-                                className="group pointer-events-auto flex h-11 w-11 items-center justify-center rounded-2xl border border-white/5 bg-white/5 text-white/50 shadow-[0_16px_32px_-12px_rgba(0,0,0,0.8)] backdrop-blur-xl transition-all duration-300 hover:border-white/15 hover:bg-white/10 hover:text-white hover:shadow-[0_20px_40px_-12px_rgba(0,0,0,1)] active:scale-90"
+                                className="group pointer-events-auto flex h-9 w-9 items-center justify-center rounded-xl border border-white/5 bg-white/5 text-white/50 shadow-[0_16px_32px_-12px_rgba(0,0,0,0.8)] backdrop-blur-xl transition-all duration-300 hover:border-white/15 hover:bg-white/10 hover:text-white hover:shadow-[0_20px_40px_-12px_rgba(0,0,0,1)] active:scale-90"
                                 title="Scroll to bottom"
                                 aria-label="Scroll to bottom"
                             >
-                                <ChevronDown size={20} strokeWidth={2.5} className="transition-transform duration-300 group-hover:translate-y-0.5" />
+                                <ChevronDown size={16} strokeWidth={2.5} className="transition-transform duration-300 group-hover:translate-y-0.5" />
                             </button>
                         </motion.div>
                     )}
                 </AnimatePresence>
 
                 {/* Input Area */}
-                <div className="relative z-20 shrink-0 bg-brand-dark pt-2">
+                <div className={clsx("shrink-0 bg-brand-dark pt-1.5 relative", editMode ? "z-70" : "z-20")}>
                     {/* Typing Indicator */}
                     {Object.keys(typingUsers).length > 0 && (
-                        <div className="mx-auto flex w-full max-w-5xl px-4 pb-2 pt-3 md:px-8">
-                            <div className="inline-flex items-center gap-2 rounded-full border border-white/6 bg-brand-surface/70 px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-white/30 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                        <div className="mx-auto flex w-full max-w-5xl px-3 pb-1.5 pt-2 md:px-6">
+                            <div className="inline-flex items-center gap-1.5 rounded-full border border-white/6 bg-brand-surface/70 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-white/30 animate-in fade-in slide-in-from-bottom-2 duration-300">
                                 <div className="flex items-center gap-1 opacity-50">
                                     <span className="h-1.5 w-1.5 rounded-full bg-white/40 animate-pulse" />
                                 </div>
-                                <span className="truncate max-w-[220px]">
+                                <span className="truncate max-w-55">
                                     <span className="text-white/60">{Object.values(typingUsers).join(", ")}</span> {Object.keys(typingUsers).length === 1 ? "is typing..." : "are typing..."}
                                 </span>
                             </div>
@@ -735,6 +773,7 @@ const ChatArea = () => {
                         onTyping={handleTyping}
                         replyingTo={replyingTo}
                         onCancelReply={() => setReplyingTo(null)}
+                        channelId={channelId}
                     />
                 </div>
 

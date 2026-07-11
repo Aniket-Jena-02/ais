@@ -11,10 +11,12 @@
     "@socket.io/redis-adapter": "^8.3.0",
     "amqplib": "^0.10.9",
     "cookie-parser": "^1.4.7",
-    "hono": "^4.12.7",
+    "hono": "^4.12.27",
     "ioredis": "^5.10.0",
     "mongoose": "^9.3.0",
+    "sharp": "^0.34.5",
     "socket.io": "^4.8.3",
+    "tsx": "^4.23.0",
     "zod": "^4.3.6"
   },
   "devDependencies": {

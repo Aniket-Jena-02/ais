@@ -13,7 +13,7 @@ import {
   Lock,
   Sparkles,
 } from "lucide-react";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useInViewport, useCounter } from "ahooks";
 
 export const Route = createFileRoute("/")({
@@ -48,22 +48,35 @@ export const Route = createFileRoute("/")({
   }
 });
 
-// Animated counter component using ahooks
+// Animated counter component using ahooks.
+// Uses a single requestAnimationFrame loop (rather than chaining setTimeout
+// off a `count` dependency) so the effect doesn't tear down and rebuild on
+// every tick — smoother, and avoids double-invoke stutter in dev mode.
 function AnimatedStat({ end, suffix = "", label }: { end: number; suffix?: string; label: string }) {
   const ref = useRef<HTMLDivElement>(null);
   const [inViewport] = useInViewport(ref);
   const [count, { set }] = useCounter(0, { min: 0, max: end });
+  const hasAnimatedRef = useRef(false);
 
   useEffect(() => {
-    if (!inViewport || count >= end) return;
+    if (!inViewport || hasAnimatedRef.current) return;
+    hasAnimatedRef.current = true;
 
-    const step = Math.max(1, Math.floor(end / 60));
-    const timeout = window.setTimeout(() => {
-      set((prev) => Math.min(prev + step, end));
-    }, 16);
+    const durationMs = 900;
+    const startTime = performance.now();
 
-    return () => window.clearTimeout(timeout);
-  }, [count, end, inViewport, set]);
+    let frameId: number;
+    const tick = (now: number) => {
+      const progress = Math.min((now - startTime) / durationMs, 1);
+      set(Math.round(progress * end));
+      if (progress < 1) {
+        frameId = requestAnimationFrame(tick);
+      }
+    };
+    frameId = requestAnimationFrame(tick);
+
+    return () => cancelAnimationFrame(frameId);
+  }, [end, inViewport, set]);
 
   return (
     <div ref={ref} className="text-center">
@@ -98,6 +111,20 @@ function RevealSection({ children, className = "", delay = 0 }: { children: Reac
 
 function LandingPage() {
   const heroRef = useRef<HTMLDivElement>(null);
+  const [isAtTop, setIsAtTop] = useState(true);
+
+  useEffect(() => {
+    const handleScroll = () => {
+      setIsAtTop(window.scrollY <= 0);
+    };
+
+    setIsAtTop(window.scrollY <= 0);
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    return () => {
+      window.removeEventListener("scroll", handleScroll);
+    };
+  }, []);
+
   const { scrollYProgress } = useScroll({
     target: heroRef,
     offset: ["start start", "end start"],
@@ -111,8 +138,8 @@ function LandingPage() {
       icon: Zap,
       title: "Real-time Messaging",
       description: "WebSocket-powered delivery with sub-100ms latency. Every keystroke, every message — instantly.",
-      iconWrapClass: "bg-brand-accent/10 border-brand-accent/20",
-      iconClass: "text-brand-accent",
+      iconWrapClass: "bg-amber-400/10 border-amber-400/20",
+      iconClass: "text-amber-400",
     },
     {
       icon: Hash,
@@ -139,13 +166,15 @@ function LandingPage() {
     { icon: Zap, label: "Zero Latency" },
   ];
 
+  const typingDotDelays = [0, 150, 300];
+
   return (
     <div className="min-h-dvh bg-brand-dark relative overflow-x-hidden selection:bg-brand-accent/30 font-sans">
       {/* Background ambient effects */}
       <div className="fixed inset-0 pointer-events-none z-0">
-        <div className="absolute top-0 left-1/3 w-[800px] h-[800px] bg-brand-accent/8 rounded-full filter blur-[120px] animate-blob" />
-        <div className="absolute bottom-1/4 right-1/4 w-[600px] h-[600px] bg-brand-accent-soft/5 rounded-full filter blur-[100px] animate-blob animation-delay-2000" />
-        <div className="absolute top-1/2 right-1/3 w-[400px] h-[400px] bg-emerald-500/3 rounded-full filter blur-[80px] animate-blob animation-delay-4000" />
+        <div className="absolute top-0 left-1/3 w-200 h-200 bg-brand-accent/8 rounded-full filter blur-[120px] animate-blob" />
+        <div className="absolute bottom-1/4 right-1/4 w-150 h-150 bg-brand-accent-soft/5 rounded-full filter blur-[100px] animate-blob animation-delay-2000" />
+        <div className="absolute top-1/2 right-1/3 w-100 h-100 bg-emerald-500/3 rounded-full filter blur-[80px] animate-blob animation-delay-4000" />
       </div>
 
       {/* Navbar */}
@@ -154,7 +183,7 @@ function LandingPage() {
           initial={{ y: -40, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
           transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1] }}
-          className="max-w-7xl mx-auto bg-brand-dark/60 backdrop-blur-2xl border border-white/6 ring-1 ring-white/4 rounded-2xl px-6 md:px-8 py-4 flex items-center justify-between shadow-2xl shadow-black/20"
+          className={`max-w-7xl mx-auto bg-brand-dark/60 backdrop-blur-2xl ring-1 ring-white/4 rounded-2xl px-6 md:px-8 py-4 flex items-center justify-between shadow-2xl shadow-black/20 nav-border-anim ${!isAtTop ? 'nav-border-play' : ''}`}
         >
           <Link to="/" className="flex items-center gap-3 group">
             <div className="w-10 h-10 rounded-xl bg-brand-accent flex items-center justify-center shadow-lg shadow-brand-accent/25 rotate-3 group-hover:rotate-6 transition-transform duration-500">
@@ -210,12 +239,14 @@ function LandingPage() {
             v2.0 Beta is Live
           </motion.div>
 
-          {/* Headline */}
+          {/* Headline — smoothed type scale (was 5xl→7xl→8xl→7.5rem, an
+              uneven +50% jump at the first breakpoint then almost nothing
+              after; now a standard 4xl→6xl→7xl→8xl progression). */}
           <motion.h1
             initial={{ opacity: 0, y: 40 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8, delay: 0.3, ease: [0.22, 1, 0.36, 1] }}
-            className="text-5xl sm:text-7xl md:text-8xl lg:text-[7.5rem] font-black tracking-tight text-white font-serif leading-[0.9] mb-8 max-w-5xl text-balance"
+            className="text-4xl sm:text-6xl md:text-7xl lg:text-8xl font-black tracking-tight text-white font-serif leading-[0.9] mb-8 max-w-5xl text-balance"
           >
             Connect Beyond
             <br />
@@ -368,13 +399,18 @@ function LandingPage() {
                   </div>
                 </div>
 
-                {/* Typing indicator */}
+                {/* Typing indicator — dots now stagger on a realistic
+                    150ms cadence instead of the 2s/4s blob-delay classes. */}
                 <div className="px-6 pb-2">
                   <div className="flex items-center gap-2 text-white/15">
                     <div className="flex gap-1">
-                      <div className="w-1 h-1 rounded-full bg-current animate-pulse" />
-                      <div className="w-1 h-1 rounded-full bg-current animate-pulse animation-delay-2000" />
-                      <div className="w-1 h-1 rounded-full bg-current animate-pulse animation-delay-4000" />
+                      {typingDotDelays.map((delayMs) => (
+                        <div
+                          key={delayMs}
+                          className="w-1 h-1 rounded-full bg-current animate-pulse"
+                          style={{ animationDelay: `${delayMs}ms` }}
+                        />
+                      ))}
                     </div>
                     <div className="h-2 w-24 bg-white/4 rounded-full" />
                   </div>
@@ -393,7 +429,7 @@ function LandingPage() {
       </section>
 
       {/* Stats Section */}
-      <section className="relative z-10 py-24 border-y border-white/4 bg-brand-surface/30 backdrop-blur-sm px-4 md:px-8">
+      <section className="relative z-10 py-20 md:py-28 border-y border-white/4 bg-brand-surface/30 backdrop-blur-sm px-4 md:px-8">
         <div className="max-w-5xl mx-auto grid grid-cols-2 md:grid-cols-4 gap-12">
           <AnimatedStat end={99} suffix="%" label="Uptime" />
           <AnimatedStat end={50} suffix="ms" label="Avg Latency" />
@@ -403,9 +439,9 @@ function LandingPage() {
       </section>
 
       {/* Features Grid */}
-      <section className="relative z-10 py-32 md:py-48 px-4 md:px-8">
+      <section className="relative z-10 py-28 md:py-36 px-4 md:px-8">
         <div className="max-w-7xl mx-auto">
-          <RevealSection className="text-center mb-24 md:mb-32">
+          <RevealSection className="text-center mb-16 md:mb-20">
             <div className="inline-flex items-center gap-3 px-5 py-2.5 rounded-full border border-white/6 bg-white/2 text-white/40 text-[10px] font-bold uppercase tracking-[0.2em] mb-8">
               Features
             </div>
@@ -418,12 +454,16 @@ function LandingPage() {
             </p>
           </RevealSection>
 
+          {/* Cards are now full-width within their grid track (were a fixed
+              w-[400px] h-[310px], which overflowed or left gaps depending
+              on the actual column width at each breakpoint). min-h keeps
+              the three cards visually even without forcing an exact size. */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-8">
             {features.map((feature, index) => {
               const Icon = feature.icon;
               return (
                 <RevealSection key={feature.title} delay={index * 150}>
-                  <div className="group bg-brand-surface/40 backdrop-blur-xl border border-white/5 rounded-3xl p-10 md:p-12 shadow-xl hover:shadow-2xl hover:border-white/10 hover:-translate-y-2 transition-all duration-500 relative overflow-hidden">
+                  <div className="group bg-brand-surface/40 backdrop-blur-xl border border-white/5 rounded-3xl p-10 md:p-12 shadow-xl hover:shadow-2xl hover:border-white/10 hover:-translate-y-2 transition-all duration-500 relative overflow-hidden w-full min-h-70">
                     {/* Hover glow */}
                     <div className="absolute inset-0 bg-linear-to-b from-brand-accent/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
 
@@ -447,7 +487,7 @@ function LandingPage() {
       </section>
 
       {/* CTA Section */}
-      <section className="relative z-10 py-32 md:py-40 px-4 md:px-8">
+      <section className="relative z-10 py-28 md:py-36 px-4 md:px-8">
         <RevealSection>
           <div className="max-w-4xl mx-auto text-center relative">
             {/* Background glow */}
@@ -506,7 +546,7 @@ function LandingPage() {
 
             {/* Copyright */}
             <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-white/15">
-              © 2026 Ether Chat Industries
+              © {new Date().getFullYear()} Ether Chat
             </p>
           </div>
         </div>

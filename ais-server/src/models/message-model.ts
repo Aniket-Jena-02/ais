@@ -6,6 +6,10 @@ const MessageMongoSchema = new mongoose.Schema({
         required: true,
         trim: true,
     },
+    isEdited: {
+        type: Boolean,
+        default: false,
+    },
     author: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'User',
@@ -24,11 +28,20 @@ const MessageMongoSchema = new mongoose.Schema({
         emoji: { type: String, required: true },
         users: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
     }],
+    file: {
+        type: new mongoose.Schema({
+            name: String,
+            type: String,
+            size: Number,
+            url: String,
+        }, { _id: false }),
+        default: undefined,
+    }
 
 }, {
-    timestamps: true,
+    timestamps: { createdAt: true, updatedAt: false },
 })
 
 MessageMongoSchema.index({ channelId: 1, createdAt: -1 })
 
-export const MessageModel = mongoose.model('Message', MessageMongoSchema)
+export const MessageModel = mongoose.model('Message', MessageMongoSchema)

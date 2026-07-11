@@ -2,6 +2,7 @@ import * as amqp from "amqplib"
 import { decode, verify } from "hono/jwt";
 import { UserModel } from "./models/user-model.js";
 import { MessageModel } from "./models/message-model.js";
+import { S3Client } from "bun";
 
 export const checkUserAuth = async (token: string | undefined) => {
     const isVerifiedToken = await verify(token ?? "", Bun.env.JWT_SECRET!, 'HS256')
@@ -78,3 +79,11 @@ export const startRabbitWorker = async () => {
         }
     })
 }
+
+
+export const gcs = new S3Client({
+    endpoint: Bun.env.GCS_ENDPOINT,
+    accessKeyId: Bun.env.GCS_ACCESS_KEY_ID,
+    secretAccessKey: Bun.env.GCS_SECRET_ACCESS_KEY,
+    bucket: Bun.env.GCS_BUCKET,
+})

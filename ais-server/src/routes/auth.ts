@@ -24,16 +24,7 @@ authRouter.post("/register", async (c) => {
     });
   }
 
-  const isExisting = await UserModel.findOne({
-    email: result.data.email,
-  });
-
-  if (isExisting) {
-    c.status(400);
-    return c.json({
-      msg: "User already exists",
-    });
-  }
+  c;
 
   const hashedPassword = await Bun.password.hash(result.data.password);
   const user = await UserModel.create({
@@ -127,7 +118,7 @@ authRouter.get("/me", async (c) => {
 
   return c.json({
     userName: user.name,
-    userId: user._id
+    userId: user._id,
   });
 });
 

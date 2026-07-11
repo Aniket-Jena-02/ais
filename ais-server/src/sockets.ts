@@ -152,6 +152,12 @@ io.on("connection", async (socket) => {
       channelId: z.string(),
       content: z.string().min(1).max(1000),
       replyTo: z.string().optional(),
+      file: z.object({
+        name: z.string(),
+        type: z.string(),
+        size: z.number(),
+        url: z.string(),
+      }).optional(),
     });
     const parsed = schema.safeParse(payload);
     if (!parsed.success) {
@@ -168,6 +174,7 @@ io.on("connection", async (socket) => {
         channelId: parsed.data.channelId,
         content: parsed.data.content,
         replyTo: parsed.data.replyTo || null,
+        ...(parsed.data.file && { file: parsed.data.file }),
       })
 
       // Populate replyTo for the broadcast
@@ -194,11 +201,13 @@ io.on("connection", async (socket) => {
           name,
         },
         replyTo: replyToData,
+        file: newMsg.file || null,
       });
       callback({
         status: "SUCCESS",
         messageId: newMsg.id,
         replyTo: replyToData,
+        file: newMsg.file || null,
       });
     } catch (err) {
       callback({
