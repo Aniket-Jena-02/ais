@@ -92,7 +92,7 @@ function RegisterComponent() {
   return (
     <div className="min-h-dvh bg-brand-dark flex flex-col items-center justify-center p-6 relative overflow-hidden font-sans">
       {/* Background Graphic Effects */}
-      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-brand-accent/5 rounded-full filter blur-[120px] pointer-events-none" />
+      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-200 h-200 bg-brand-accent/5 rounded-full filter blur-[120px] pointer-events-none" />
       <div className="absolute inset-x-0 top-0 h-32 bg-linear-to-b from-white/3 to-transparent pointer-events-none" />
 
       <Link

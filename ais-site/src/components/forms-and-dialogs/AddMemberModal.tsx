@@ -175,7 +175,7 @@ const AddMemberModal = ({ isOpen, onClose, channelId }: AddMemberModalProps) => 
                 <button
                   type="submit"
                   disabled={mutation.isPending || mutation.isSuccess}
-                  className="px-6 py-2 rounded-lg text-sm font-black bg-brand-accent text-white shadow-lg shadow-brand-accent/20 hover:scale-[1.02] active:scale-95 transition-all min-w-[100px] flex items-center justify-center gap-2"
+                  className="px-6 py-2 rounded-lg text-sm font-black bg-brand-accent text-white shadow-lg shadow-brand-accent/20 hover:scale-[1.02] active:scale-95 transition-all min-w-25 flex items-center justify-center gap-2"
                 >
                   {mutation.isPending ? <Loader2 className="animate-spin" size={16} /> : "Add"}
                 </button>

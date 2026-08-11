@@ -1,5 +1,5 @@
-@import url("https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,100;9..144,300;9..144,500;9..144,700;9..144,900&family=Manrope:wght@300;400;500;600;700;800&display=swap");
-@import "tailwindcss";
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,100;9..144,300;9..144,500;9..144,700;9..144,900&family=Manrope:wght@300;400;500;600;700;800&display=swap');
+@import 'tailwindcss';
 @plugin "@tailwindcss/typography";
 @source "../node_modules/tw-animate/animate.css";
 
@@ -15,7 +15,11 @@ body {
   min-height: 100dvh;
   background:
     radial-gradient(circle at top, rgba(212, 78, 40, 0.08), transparent 32rem),
-    radial-gradient(circle at bottom right, rgba(242, 106, 69, 0.06), transparent 28rem),
+    radial-gradient(
+      circle at bottom right,
+      rgba(242, 106, 69, 0.06),
+      transparent 28rem
+    ),
     var(--color-brand-dark);
   color: rgba(255, 255, 255, 0.92);
 }
@@ -27,7 +31,7 @@ textarea {
   -webkit-tap-highlight-color: transparent;
 }
 
-:where(a, button, summary, [role="button"], [tabindex]):focus-visible {
+:where(a, button, summary, [role='button'], [tabindex]):focus-visible {
   outline: none;
   box-shadow:
     0 0 0 1px rgba(212, 78, 40, 0.55),
@@ -55,7 +59,7 @@ textarea {
 
   .page-fade-mask::before,
   .page-fade-mask::after {
-    content: "";
+    content: '';
     position: absolute;
     left: 0;
     right: 0;
@@ -66,26 +70,34 @@ textarea {
 
   .page-fade-mask::before {
     top: 0;
-    background: linear-gradient(to bottom, rgba(10, 9, 8, 0.95), rgba(10, 9, 8, 0));
+    background: linear-gradient(
+      to bottom,
+      rgba(10, 9, 8, 0.95),
+      rgba(10, 9, 8, 0)
+    );
   }
 
   .page-fade-mask::after {
     bottom: 0;
-    background: linear-gradient(to top, rgba(10, 9, 8, 0.92), rgba(10, 9, 8, 0));
+    background: linear-gradient(
+      to top,
+      rgba(10, 9, 8, 0.92),
+      rgba(10, 9, 8, 0)
+    );
   }
 }
 
 @theme {
-  --font-serif: "Fraunces", "serif";
-  --font-sans: "Manrope", "sans-serif";
+  --font-serif: 'Fraunces', 'serif';
+  --font-sans: 'Manrope', 'sans-serif';
 
-  --color-brand-dark: #0A0908;
+  --color-brand-dark: #0a0908;
   /* Deep warm black */
-  --color-brand-muted: #1C1917;
+  --color-brand-muted: #1c1917;
   /* Warm surface grey */
-  --color-brand-accent: #D44E28;
+  --color-brand-accent: #d44e28;
   /* Editorial Burnt Vermilion */
-  --color-brand-accent-soft: #F26A45;
+  --color-brand-accent-soft: #f26a45;
   --color-brand-surface: #141210;
   /* Subtle warm elevation */
 
@@ -114,7 +126,6 @@ textarea {
 }
 
 @keyframes float {
-
   0%,
   100% {
     transform: translateY(0);
@@ -136,7 +147,6 @@ textarea {
 }
 
 @keyframes gradient {
-
   0%,
   100% {
     background-position: 0% 50%;
@@ -149,7 +159,6 @@ textarea {
 
 /* Reduced motion: disable all animations & transitions */
 @media (prefers-reduced-motion: reduce) {
-
   *,
   *::before,
   *::after {
@@ -176,9 +185,50 @@ textarea {
   -webkit-text-fill-color: transparent;
 }
 
+/* CTA glow pulse — subtle pulsing box-shadow on primary actions */
+.cta-glow {
+  animation: cta-glow-pulse 3s ease-in-out infinite;
+}
+
+@keyframes cta-glow-pulse {
+  0%,
+  100% {
+    box-shadow:
+      0 0 20px rgba(212, 78, 40, 0.15),
+      0 0 60px rgba(212, 78, 40, 0.05);
+  }
+  50% {
+    box-shadow:
+      0 0 30px rgba(212, 78, 40, 0.25),
+      0 0 80px rgba(212, 78, 40, 0.1);
+  }
+}
+
+/* Feature card border-gradient reveal on hover */
+.border-gradient-reveal {
+  background: linear-gradient(
+    135deg,
+    rgba(255, 255, 255, 0.08) 0%,
+    rgba(212, 78, 40, 0.12) 50%,
+    rgba(255, 255, 255, 0.04) 100%
+  );
+  -webkit-mask:
+    linear-gradient(#000, #000) content-box,
+    linear-gradient(#000, #000);
+  mask:
+    linear-gradient(#000, #000) content-box,
+    linear-gradient(#000, #000);
+  -webkit-mask-clip: content-box, border-box;
+  mask-clip: content-box, border-box;
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  padding: 1px;
+  border-radius: inherit;
+}
+
 /* Noise overlay */
 .noise-overlay::before {
-  content: "";
+  content: '';
   position: absolute;
   inset: 0;
   background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.03'/%3E%3C/svg%3E");
@@ -203,7 +253,7 @@ textarea {
 }
 
 @property --nav-angle {
-  syntax: "<angle>";
+  syntax: '<angle>';
   inherits: true;
   initial-value: 0turn;
 }
@@ -225,19 +275,24 @@ textarea {
 }
 
 .nav-border-anim::before {
-  content: " ";
+  content: ' ';
   position: absolute;
   inset: calc(var(--border-width) * -2);
   z-index: -1;
   border: inherit;
   border-radius: inherit;
-  background-image: conic-gradient(from var(--nav-angle), rgba(255, 255, 255, 0.06) 80%, var(--color-brand-accent) 88%, var(--color-brand-accent-soft) 92%, rgba(255, 255, 255, 0.06) 100%);
+  background-image: conic-gradient(
+    from var(--nav-angle),
+    rgba(255, 255, 255, 0.06) 80%,
+    var(--color-brand-accent) 88%,
+    var(--color-brand-accent-soft) 92%,
+    rgba(255, 255, 255, 0.06) 100%
+  );
   background-origin: border-box;
   -webkit-mask:
     linear-gradient(black, black) content-box,
     linear-gradient(black, black);
-  mask: linear-gradient(black, black),
-    linear-gradient(black, black);
+  mask: linear-gradient(black, black), linear-gradient(black, black);
   -webkit-mask-clip: content-box, border-box;
   mask-clip: content-box, border-box;
   -webkit-mask-composite: xor;

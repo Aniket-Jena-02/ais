@@ -4,7 +4,7 @@ import { User, Crown, Hash, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import type { Socket } from "socket.io-client";
 import { toast } from "sonner";
-import ConfirmDialog from "./ConfirmDialog";
+import ConfirmDialog from "../forms-and-dialogs/ConfirmDialog";
 
 interface Member {
   _id: string;

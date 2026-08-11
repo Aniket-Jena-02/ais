@@ -5,7 +5,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { createPortal } from "react-dom";
 import UserProfileFooter from "./UserProfileFooter";
-import CreateChannelModal from "./CreateChannelModal";
+import CreateChannelModal from "../forms-and-dialogs/CreateChannelModal";
 import { useLocalStorageState } from "ahooks";
 
 interface CollapsedTooltipState {
@@ -22,7 +22,7 @@ interface UserChannel {
 }
 
 const SIDEBAR_EXPANDED_WIDTH = 240;
-const SIDEBAR_COLLAPSED_WIDTH = 56;
+const SIDEBAR_COLLAPSED_WIDTH = 48;
 
 const UserChannels = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
