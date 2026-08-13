@@ -56,7 +56,7 @@ const UserProfileFooter = ({ isCollapsed = false }: { isCollapsed?: boolean }) =
     >
       <div className={`group flex items-center gap-2 min-w-0 ${isCollapsed ? '' : 'flex-1'} hover:bg-white/5 p-1 ${isCollapsed ? '' : '-ml-1'} rounded-lg cursor-pointer transition-all duration-200`}>
         <div className="relative">
-          <div className="w-7 h-7 shrink-0 rounded-lg bg-brand-accent flex items-center justify-center shadow-lg shadow-brand-accent/20 text-white font-black text-[11px] ring-1 ring-inset ring-white/20 rotate-3 group-hover:rotate-0 transition-transform duration-300">
+          <div className="w-7 h-7 shrink-0 rounded-lg bg-brand-accent flex items-center justify-center shadow-lg shadow-brand-accent/20 text-white font-black text-[11px] ring-1 ring-inset ring-white/20">
             {firstLetter}
           </div>
           <span className="absolute -bottom-0.5 -right-0.5 h-2 w-2 rounded-full border-2 border-brand-surface bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.45)]" />

@@ -6,6 +6,10 @@ export interface SignedUploadResponse {
   fileName: string
   contentType: string
   size: number
+  requiredUploadHeaders: {
+      "Content-Type": string
+      "X-Goog-Content-Length-Range": string
+  }
 }
 
 export const requestSignedUploadUrl = async (
@@ -34,11 +38,12 @@ export const requestSignedUploadUrl = async (
   return data as SignedUploadResponse
 }
 
-export const uploadFileToSignedUrl = async (uploadUrl: string, file: File) => {
+export const uploadFileToSignedUrl = async (uploadUrl: string, file: File, requiredUploadHeaders: { "Content-Type": string; "X-Goog-Content-Length-Range": string }) => {
   const response = await fetch(uploadUrl, {
     method: "PUT",
     headers: {
-      "Content-Type": file.type || "application/octet-stream",
+      // "Content-Type": file.type || "application/octet-stream",
+      ...requiredUploadHeaders
     },
     body: file,
   })

@@ -204,6 +204,11 @@ textarea {
   }
 }
 
+@keyframes typing-wave {
+  0%, 60%, 100% { transform: translateY(0); opacity: 0.4; }
+  30% { transform: translateY(-3px); opacity: 1; }
+}
+
 /* Feature card border-gradient reveal on hover */
 .border-gradient-reveal {
   background: linear-gradient(

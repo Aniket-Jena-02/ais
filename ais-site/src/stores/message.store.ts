@@ -15,10 +15,11 @@ export const useEditMode = create<State & Actions>((set) => ({
     msgId: "",
     content: "",
     enableEditMode(msgId, content) {
+        if (!msgId) return
         set({
             editMode: true,
             msgId,
-            content
+            content: content ?? ""
         })
     },
     disableEditMode() {

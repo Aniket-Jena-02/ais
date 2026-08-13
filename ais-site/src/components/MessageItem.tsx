@@ -3,7 +3,6 @@ import { format, isValid } from "date-fns"
 import { memo, useState, useRef, useEffect } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import clsx from "clsx"
-import { createPortal } from "react-dom"
 import { useEditMode } from "#/stores/message.store"
 
 const formatFileSize = (bytes: number) => {
@@ -85,7 +84,7 @@ const MessageItem = ({
   const menuRef = useRef<HTMLDivElement>(null)
   const emojiRef = useRef<HTMLDivElement>(null)
 
-  const { enableEditMode, disableEditMode, msgId, editMode } = useEditMode()
+  const { enableEditMode, msgId, editMode } = useEditMode()
 
   // Close menu on outside click
   useEffect(() => {
@@ -205,7 +204,7 @@ const MessageItem = ({
                 >
                   <div className="relative overflow-hidden rounded-lg border border-white/6 bg-white/2 transition-all duration-300">
                     <img
-                      src={`${import.meta.env.VITE_API}${message.file.url}`}
+                      src={`${message.file.url}`}
                       alt={message.file.name}
                       loading="eager"
                       className="max-h-65 w-auto object-contain rounded-lg transition-transform duration-300"
@@ -285,7 +284,7 @@ const MessageItem = ({
       </div>
 
       {/* ─── Hover Toolbar ─── */}
-      {!editMode && <div className="absolute -top-2.5 right-6 opacity-0 group-hover:opacity-100 transition-all duration-150 z-10 flex items-center gap-2.5 translate-y-1 group-hover:translate-y-0">
+      {!(editMode && msgId === message._id) && <div className="absolute -top-2.5 right-6 opacity-0 group-hover:opacity-100 transition-all duration-150 z-10 flex items-center gap-2.5 translate-y-1 group-hover:translate-y-0">
         {consecutive && isValid(new Date(message.createdAt)) && (
           <span className="text-[8px] font-black uppercase tracking-[0.14em] text-white/10 select-none mr-1">
             {format(new Date(message.createdAt), "h:mm a")}
@@ -397,35 +396,14 @@ const MessageItem = ({
   )
 
   return (
-    <>
-      {/* Backdrop and Centered Clone via Portal */}
-      {editMode && msgId === message._id && typeof document !== "undefined" && createPortal(
-        <div className="fixed inset-0 z-60 flex items-center justify-center pointer-events-none">
-          <div
-            className="absolute inset-0 bg-black/80 backdrop-blur-md pointer-events-auto transition-opacity duration-300 animate-in fade-in"
-            onClick={disableEditMode}
-          />
-          <div className="relative z-10 w-full max-w-2xl px-4 flex justify-center pointer-events-auto">
-            <div className="w-full bg-brand-surface/95 rounded-xl shadow-2xl shadow-black/50 ring-1 ring-white/10 p-5 backdrop-blur-xl animate-in fade-in zoom-in-95 duration-200 group">
-              {contentNode}
-            </div>
-          </div>
-        </div>,
-        document.body
+    <div
+      className={clsx(
+        "group relative flex flex-col px-4 md:px-6 hover:bg-white/1.5 transition-colors fill-mode-both animate-in slide-in-from-bottom-1 duration-300",
+        consecutive ? "py-0.5 mt-0" : "pt-1.5 pb-0.5 mt-3.5"
       )}
-
-      {/* Original item in flow (hidden while editing to preserve scroll position) */}
-      <div
-        className={clsx(
-          "group flex flex-col transition-colors fill-mode-both",
-          editMode && msgId === message._id
-            ? "opacity-0 pointer-events-none"
-            : clsx("relative px-4 md:px-6 hover:bg-white/1.5 animate-in slide-in-from-bottom-1 duration-300", consecutive ? "py-0.5 mt-0" : "pt-1.5 pb-0.5 mt-3.5")
-        )}
-      >
-        {contentNode}
-      </div>
-    </>
+    >
+      {contentNode}
+    </div>
   );
 
 }

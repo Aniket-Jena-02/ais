@@ -22,6 +22,7 @@ import ConfirmDialog from "./forms-and-dialogs/ConfirmDialog"
 import clsx from "clsx"
 import { AnimatePresence, motion } from "framer-motion"
 import { useEditMode } from "#/stores/message.store"
+import { TypingIndicator } from "./TypingIndicator"
 
 interface ProcessedMessage {
   message: Message
@@ -97,9 +98,22 @@ const ChatArea = () => {
   })
 
   const socketRef = useRef<Socket | null>(null)
+  const currentUserIdRef = useRef<string | undefined>(undefined)
   const scrollContainerRef = useRef<HTMLDivElement>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const [showScrollToBottom, setShowScrollToBottom] = useState(false)
+
+  useEffect(() => {
+    currentUserIdRef.current = userData?.userId
+    if (userData?.userId) {
+      setTypingUsers((previous) => {
+        if (!(userData.userId in previous)) return previous
+        const next = { ...previous }
+        delete next[userData.userId]
+        return next
+      })
+    }
+  }, [userData?.userId])
 
   const channelIdRef = useRef(channelId)
   useEffect(() => {
@@ -291,6 +305,9 @@ const ChatArea = () => {
     })
 
     socket.on("typing", (data: { user: { id: string, name: string }, isTyping: boolean }) => {
+      // The server broadcasts typing events to the whole room, including the sender.
+      if (data.user.id === currentUserIdRef.current) return
+
       setTypingUsers((prev) => {
         const newObj = { ...prev }
         if (data.isTyping) {
@@ -430,14 +447,18 @@ const ChatArea = () => {
     navigate({ to: "/channels" })
   }
 
-  const handleSendMessage = (content: string, file?: FileAttachment) => {
-    if (!socketRef.current) return
-
+  const handleSendMessage = async (content: string, file?: FileAttachment) => {
     if (editMode && msgId) {
-      handleEditMessage(msgId, content)
-      disableEditMode()
+      try {
+        await handleEditMessage(msgId, content)
+        disableEditMode()
+      } catch {
+        // Keep the edit open so the user can retry or cancel.
+      }
       return
     }
+
+    if (!socketRef.current) return
 
     const newMessage: Record<string, any> = {
       content,
@@ -570,6 +591,13 @@ const ChatArea = () => {
       }
     })
   }, [initialMessages, messages, olderMessages])
+
+  // Also filter at render time to cover events received before /auth/me resolves
+  // and any stale self-events already held in local state.
+  const visibleTypingUsers = useMemo(
+    () => Object.entries(typingUsers).filter(([userId]) => userId !== userData?.userId),
+    [typingUsers, userData?.userId]
+  )
 
   const isLoading = isChannelLoading || isMessagesLoading
 
@@ -748,24 +776,14 @@ const ChatArea = () => {
               </button>
             </motion.div>
           )}
+
         </AnimatePresence>
 
-        {/* Input Area */}
-        <div className={clsx("shrink-0 bg-transparent pt-1.5 relative", editMode ? "z-70" : "z-20")}>
-          {/* Typing Indicator */}
-          {Object.keys(typingUsers).length > 0 && (
-            <div className="mx-auto flex w-full max-w-5xl px-3 pb-1.5 pt-2 md:px-6">
-              <div className="inline-flex items-center gap-1.5 rounded-full border border-white/6 bg-brand-surface/70 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-white/30 animate-in fade-in slide-in-from-bottom-2 duration-300">
-                <div className="flex items-center gap-1 opacity-50">
-                  <span className="h-1.5 w-1.5 rounded-full bg-white/40 animate-pulse" />
-                </div>
-                <span className="truncate max-w-55">
-                  <span className="text-white/60">{Object.values(typingUsers).join(", ")}</span> {Object.keys(typingUsers).length === 1 ? "is typing..." : "are typing..."}
-                </span>
-              </div>
-            </div>
-          )}
+        {/* Typing Indicator */}
+        <TypingIndicator typingUsers={visibleTypingUsers} />
 
+        {/* Input Area */}
+        <div className={clsx("shrink-0 bg-transparent pt-0.5 relative", editMode ? "z-70" : "z-20")}>
           <MessageInput
             onSendMessage={handleSendMessage}
             placeholder={isConnecting ? "Connecting to server..." : `Message in #${channelData?.channel.name || 'channel'}`}

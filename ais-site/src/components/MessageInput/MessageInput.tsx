@@ -20,7 +20,7 @@ export interface FileAttachment {
 }
 
 interface MessageInputProps {
-  onSendMessage: (content: string, file?: FileAttachment) => void;
+  onSendMessage: (content: string, file?: FileAttachment) => void | Promise<void>;
   placeholder?: string;
   disabled?: boolean;
   onTyping: () => void;
@@ -54,6 +54,7 @@ const getFileBadge = (file: File) => {
 
 const MessageInput = ({ onSendMessage, placeholder, disabled, onTyping, replyingTo, onCancelReply, channelId }: MessageInputProps) => {
   const [isUploading, setIsUploading] = useState(false)
+  const [isSubmitting, setIsSubmitting] = useState(false)
   const [inputValue, setInputValue] = useState("")
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -67,16 +68,17 @@ const MessageInput = ({ onSendMessage, placeholder, disabled, onTyping, replying
     }
   }, [replyingTo])
 
-  // Pre-fill and auto-focus textarea when edit mode activates
+  // Keep the composer as the single edit surface and focus it when edit mode activates.
   useEffect(() => {
-    if (editMode && textareaRef.current) {
+    if (editMode) {
       setInputValue(editContent)
-      textareaRef.current.focus()
-      // Move cursor to end
-      setTimeout(() => {
-        if (textareaRef.current) textareaRef.current.selectionStart = editContent.length
-      }, 10)
-    } else if (!editMode && !replyingTo) {
+      requestAnimationFrame(() => {
+        const textarea = textareaRef.current
+        if (!textarea) return
+        textarea.focus()
+        textarea.setSelectionRange(editContent.length, editContent.length)
+      })
+    } else {
       setInputValue("")
     }
   }, [editMode, editContent])
@@ -92,7 +94,7 @@ const MessageInput = ({ onSendMessage, placeholder, disabled, onTyping, replying
   const handleSubmit = async (e?: React.SubmitEvent<HTMLFormElement>) => {
     e?.preventDefault()
     if (!inputValue.trim() && !file) return
-    if (disabled || isUploading) return
+    if (disabled || isUploading || isSubmitting) return
 
     let fileAttachment: FileAttachment | undefined
 
@@ -100,7 +102,7 @@ const MessageInput = ({ onSendMessage, placeholder, disabled, onTyping, replying
       setIsUploading(true)
       try {
         const uploadMeta = await requestSignedUploadUrl(channelId, file)
-        await uploadFileToSignedUrl(uploadMeta.uploadUrl, file)
+        await uploadFileToSignedUrl(uploadMeta.uploadUrl, file, uploadMeta.requiredUploadHeaders)
 
         fileAttachment = {
           name: uploadMeta.fileName || file.name,
@@ -118,12 +120,15 @@ const MessageInput = ({ onSendMessage, placeholder, disabled, onTyping, replying
       }
     }
 
-    const content = inputValue.trim() || (fileAttachment ? `📎 ${fileAttachment.name}` : "")
-    if (!content) return
 
-    onSendMessage(content, fileAttachment)
-    setInputValue("")
-    deselectFile()
+    setIsSubmitting(true)
+    try {
+      await onSendMessage(inputValue.trim(), fileAttachment)
+      setInputValue("")
+      deselectFile()
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -273,6 +278,8 @@ const MessageInput = ({ onSendMessage, placeholder, disabled, onTyping, replying
                   file={file}
                   disabled={disabled ?? true}
                   isUploading={isUploading}
+                  isSubmitting={isSubmitting}
+                  isEditing={editMode}
                 />)}
             </div>
           </form>

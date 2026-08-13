@@ -15,9 +15,11 @@ interface ActionBtnsRightProps {
   file: File | null;
   disabled: boolean;
   isUploading: boolean;
+  isSubmitting: boolean;
+  isEditing: boolean;
 }
 
-const ActionBtnsRight = ({ inputValue, textareaRef, setInputValue, file, disabled, isUploading }: ActionBtnsRightProps) => {
+const ActionBtnsRight = ({ inputValue, textareaRef, setInputValue, file, disabled, isUploading, isSubmitting, isEditing }: ActionBtnsRightProps) => {
   const emojiPickerRef = useRef<HTMLDivElement>(null)
 
   const [showEmojiPicker, setShowEmojiPicker] = useState(false)
@@ -52,6 +54,8 @@ const ActionBtnsRight = ({ inputValue, textareaRef, setInputValue, file, disable
         file={file}
         disabled={disabled ?? true}
         isUploading={isUploading}
+        isSubmitting={isSubmitting}
+        isEditing={isEditing}
       />
     </div>
   )
