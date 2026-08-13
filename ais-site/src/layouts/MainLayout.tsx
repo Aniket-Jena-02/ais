@@ -1,4 +1,4 @@
-import UserChannels from "../components/UserChannels";
+import UserChannels from "../components/left-side/UserChannels";
 import type { ReactNode } from "react";
 
 interface MainLayoutProps {

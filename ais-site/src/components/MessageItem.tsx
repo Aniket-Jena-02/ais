@@ -159,7 +159,7 @@ const MessageItem = ({
         {/* Left Gutter: Avatar */}
         <div className="shrink-0 w-8 flex flex-col items-center">
           {!consecutive && (
-            <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-[12px] font-black shadow-lg ring-1 ring-inset ${colorClass} transition-transform group-hover:scale-105 duration-300`}>
+            <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-[12px] font-black shadow-lg ring-1 ring-inset ${colorClass} duration-300`}>
               {message.author?.name ? message.author.name.charAt(0).toUpperCase() : <User size={14} />}
             </div>
           )}
@@ -203,12 +203,12 @@ const MessageItem = ({
                   rel="noopener noreferrer"
                   className="block max-w-sm group/img w-fit"
                 >
-                  <div className="relative overflow-hidden rounded-lg border border-white/6 bg-white/2 transition-all duration-300 group-hover/img:border-white/12 group-hover/img:shadow-lg group-hover/img:shadow-black/30">
+                  <div className="relative overflow-hidden rounded-lg border border-white/6 bg-white/2 transition-all duration-300">
                     <img
                       src={`${import.meta.env.VITE_API}${message.file.url}`}
                       alt={message.file.name}
                       loading="eager"
-                      className="max-h-65 w-auto object-contain rounded-lg transition-transform duration-300 group-hover/img:scale-[1.02]"
+                      className="max-h-65 w-auto object-contain rounded-lg transition-transform duration-300"
                     />
                   </div>
                 </a>
@@ -220,11 +220,11 @@ const MessageItem = ({
                   download={message.file.name}
                   className="inline-flex items-center gap-2.5 px-3 py-2 rounded-lg border border-white/6 bg-white/2 hover:bg-white/5 hover:border-white/10 transition-all duration-200 max-w-sm group/file"
                 >
-                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-brand-accent/10 text-brand-accent transition-colors group-hover/file:bg-brand-accent/15">
+                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-brand-accent/10 text-brand-accent">
                     <FileDown size={15} />
                   </div>
                   <div className="min-w-0 flex flex-col">
-                    <span className="text-[12px] font-semibold text-white/70 truncate group-hover/file:text-white/90 transition-colors">
+                    <span className="text-[12px] font-semibold text-white/70 truncate">
                       {message.file.name}
                     </span>
                     <span className="text-[9px] font-bold uppercase tracking-wider text-white/20">
